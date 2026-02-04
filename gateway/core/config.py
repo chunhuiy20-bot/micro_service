@@ -6,13 +6,15 @@ from dotenv import load_dotenv
 from pathlib import Path
 from typing import Optional, Dict
 
+from common.utils.nacos.NacosRegistry import NacosConfig
+
 # 获取当前文件所在目录的父目录（即 gateway 目录）
 BASE_DIR = Path(__file__).resolve().parent.parent
 # 制定读取的.env
 load_dotenv(dotenv_path=f"{BASE_DIR}/.env")
 
 # 导入 NacosConfig
-from gateway.utils.nacos.nacos_registry import NacosConfig
+
 
 class Config:
     """网关配置类"""
@@ -43,7 +45,9 @@ class Config:
                 password=os.getenv("NACOS_PASSWORD"),
                 heartbeat_interval=int(os.getenv("NACOS_HEARTBEAT_INTERVAL", "5")),
                 enabled=os.getenv("NACOS_ENABLED", "true").lower() in ("true", "1", "yes"),
-                ephemeral=os.getenv("NACOS_EPHEMERAL", "true").lower() in ("true", "1", "yes")
+                ephemeral=os.getenv("NACOS_EPHEMERAL", "true").lower() in ("true", "1", "yes"),
+                max_retries=int(os.getenv("NACOS_MAX_RETRIES", "3")),
+                retry_delay=int(os.getenv("NACOS_RETRY_DELAY", "5")),
             )
         except Exception as e:
             raise ValueError(f"Nacos 配置初始化失败: {e}")

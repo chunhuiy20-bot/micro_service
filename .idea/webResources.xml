@@ -7,6 +7,8 @@
           <resourceRoots>
             <path value="file://$PROJECT_DIR$/gateway" />
             <path value="file://$PROJECT_DIR$/user_service" />
+            <path value="file://$PROJECT_DIR$/account_service" />
+            <path value="file://$PROJECT_DIR$/common" />
           </resourceRoots>
         </entryData>
       </entry>
