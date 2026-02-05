@@ -1,23 +1,21 @@
 """
- SnowflakeIDGenerator 类用于生成分布式唯一 ID，基于 Twitter 的 Snowflake 算法实现。
- 该算法通过组合时间戳、工作节点 ID 和序列号生成全局唯一的 64 位整数 ID。
- 具有以下特性：
- - 时间戳部分表示生成 ID 的时间，精确到毫秒。
- - 工作节点 ID 可以标识不同机器或实例。
- - 序列号用于处理同一毫秒内生成的多个 ID。
+文件名: SnowFlake.py
+作者: yangchunhui
+创建日期: 2026/2/5
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/5 17:43
+描述:
+    基于 Twitter Snowflake 算法的分布式唯一 ID 生成器。通过组合时间戳、数据中心 ID、工作节点 ID 和序列号生成全局唯一的 64 位整数 ID，支持高并发场景下的 ID 生成，具有单调递增、线程安全等特性。
 
- 参数说明:
- - worker_id: 表示工作节点的 ID，默认为 1。
- - datacenter_id: 表示数据中心的 ID，默认为 1。
+修改历史:
+    2026/2/5 17:43 - yangchunhui - 初始版本
 
- 主要方法:
- - generate(): 生成一个唯一的 ID。
- - _time_gen(): 获取当前时间的时间戳（毫秒）。
- - _wait_for_next_millis(last_timestamp): 等待直到下一毫秒，防止重复生成相同 ID。
+依赖:
+    - time: 用于获取当前时间戳（毫秒级）
+    - threading: 提供线程锁，保证多线程环境下 ID 生成的线程安全性
 
- 注意事项:
- - 如果系统时间回拨（时间被往回调整），可能会抛出异常。
- - 生成的 ID 是单调递增的，但不保证完全连续。
+使用示例:
 """
 import time
 import threading

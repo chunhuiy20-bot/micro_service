@@ -1,10 +1,27 @@
+"""
+文件名: CommonResult.py
+作者: yangchunhui
+创建日期: 2026/2/5
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/5 18:12
+描述: 统一的 API 响应结果封装类。提供标准化的接口返回格式，包括通用返回结果（Result）和分页返回结果（PageResult），支持泛型、状态码管理、成功/失败响应快捷方法等功能。
+
+修改历史:
+2026/2/5 18:12 - yangchunhui - 初始版本
+
+依赖:
+- typing: 提供泛型支持（Generic, Optional, TypeVar）
+- pydantic: 数据验证和序列化框架（BaseModel, Field, ConfigDict）
+- datetime: 用于生成时间戳
+
+使用示例:
+"""
+
 from typing import Generic, Optional, TypeVar
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
-"""
-统一返回类，与 Java 服务保持一致，方便前端使用
-"""
 
 # 定义泛型类型
 T = TypeVar('T')

@@ -1,3 +1,24 @@
+"""
+文件名: BaseDBModel.py
+作者: yangchunhui
+创建日期: 2026/2/5
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/5 17:35
+描述: 数据库模型基类，提供所有数据表的公共字段和功能。包含雪花算法ID生成、逻辑删除、审计字段（创建时间、更新时间、创建人、更新人）、乐观锁等通用功能。
+
+修改历史:
+2026/2/5 17:35 - yangchunhui - 初始版本
+
+依赖:
+- sqlalchemy: ORM框架，用于数据库模型定义和操作
+- common.model.SnowFlake.SnowflakeIDGenerator: 雪花算法ID生成器
+- os: 用于读取环境变量配置
+
+使用示例:
+"""
+
+
 from sqlalchemy import Column, Integer, DateTime, func, String, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from common.model.SnowFlake import SnowflakeIDGenerator

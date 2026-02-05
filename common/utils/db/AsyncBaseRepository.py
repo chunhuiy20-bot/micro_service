@@ -1,8 +1,28 @@
 """
-AsyncBaseRepository - 异步版本的 Repository 基类
-配合 AsyncDBManager 使用，提供异步 CRUD 操作
+文件名: AsyncBaseRepository.py
+作者: yangchunhui
+创建日期: 2026/2/5
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/5 18:15
+描述: 异步数据访问层基类，提供完整的 CRUD 操作和查询功能。包含 AsyncQueryWrapper（链式查询条件构建器）和 AsyncBaseRepository（异步仓储基类），支持自动会话管理、事务控制、逻辑删除、分页查询等功能。
+
+修改历史:
+2026/2/5 18:15 - yangchunhui - 初始版本
+
+依赖:
+- typing: 提供泛型和类型注解支持（TypeVar, Generic, List, Optional, Dict, Any, Type, Callable）
+- functools: wraps 装饰器，用于保持被装饰函数的元数据
+- sqlalchemy.ext.asyncio: AsyncSession（异步数据库会话）
+- sqlalchemy: 查询构建工具（and_, desc, asc, func, select）和异常处理（SQLAlchemyError）
+- common.model.BaseDBModel: 数据库模型基类
+- common.utils.db.MultiAsyncDBManager: 多数据库管理器（运行时导入）
+
+使用示例:
 """
-from typing import TypeVar, Generic, List, Optional, Dict, Any, Type
+
+from typing import TypeVar, Generic, List, Optional, Dict, Any, Type, Callable
+from functools import wraps
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, desc, asc, func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,6 +31,25 @@ from common.model.BaseDBModel import BaseDBModel
 
 # 定义泛型类型
 T = TypeVar('T', bound=BaseDBModel)
+
+
+def auto_session(func: Callable) -> Callable:
+    """自动管理 session 的装饰器"""
+    @wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        # 如果已经有 session，直接执行
+        if self._provided_db is not None or self._owned_session is not None:
+            return await func(self, *args, **kwargs)
+
+        # 否则创建临时 session 执行
+        from common.utils.db.MultiAsyncDBManager import multi_db
+        async with multi_db.session(self.db_name) as session:
+            self._owned_session = session
+            try:
+                return await func(self, *args, **kwargs)
+            finally:
+                self._owned_session = None
+    return wrapper
 
 
 class AsyncQueryWrapper:
@@ -160,23 +199,93 @@ class AsyncBaseRepository(Generic[T]):
     """
     异步通用 Repository 基类
 
-    使用示例:
-        class UserRepository(AsyncBaseRepository[User]):
-            def __init__(self, db: AsyncSession):
-                super().__init__(db, User)
+    支持两种使用方式：
 
-        # 使用
+    1. 传统方式（手动管理 session，支持事务）：
         async with multi_db.session("main") as db:
             user_repo = UserRepository(db)
             user = await user_repo.get_by_id(1)
+            await user_repo.save(user)
+
+    2. 自动管理方式（推荐，自动管理 session）：
+        # 作为上下文管理器使用（支持事务）
+        async with UserRepository(db_name="main") as repo:
+            user = await repo.get_by_id(1)
+            await repo.save(user)
+
+        # 或者直接使用（每个操作独立事务）
+        repo = UserRepository(db_name="main")
+        user = await repo.get_by_id(1)
     """
 
-    def __init__(self, db: AsyncSession, model_class: Type[T]):
-        self.db = db
+    def __init__(self, db: Optional[AsyncSession] = None, model_class: Optional[Type[T]] = None, db_name: Optional[str] = None):
+        """
+        初始化 Repository
+
+        Args:
+            db: 数据库会话（可选）。如果不传入，将自动从 multi_db 获取
+            model_class: 模型类（可选）。子类可以不传，在子类中设置
+            db_name: 数据库名称（可选）。当 db 为 None 时使用，默认使用 multi_db 的默认数据库
+        """
+        self._provided_db = db
         self.model_class = model_class
+        self.db_name = db_name
+        self._session_context = None
+        self._owned_session = None
+
+    @property
+    def db(self) -> AsyncSession:
+        """获取当前数据库会话"""
+        if self._owned_session is not None:
+            return self._owned_session
+        if self._provided_db is not None:
+            return self._provided_db
+        raise RuntimeError(
+            "No database session available. Please use one of the following:\n"
+            "1. Pass db parameter: UserRepository(db=session)\n"
+            "2. Use as context manager: async with UserRepository(db_name='main') as repo\n"
+            "3. Call methods that auto-manage sessions (each operation is a separate transaction)"
+        )
+
+    async def __aenter__(self):
+        """进入异步上下文管理器"""
+        if self._provided_db is not None:
+            # 如果已经提供了 db，直接使用
+            return self
+
+        # 否则从 multi_db 获取 session
+        from common.utils.db.MultiAsyncDBManager import multi_db
+        self._session_context = multi_db.session(self.db_name)
+        self._owned_session = await self._session_context.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """退出异步上下文管理器"""
+        if self._session_context is not None:
+            result = await self._session_context.__aexit__(exc_type, exc_val, exc_tb)
+            self._session_context = None
+            self._owned_session = None
+            return result
+
+    async def _execute_with_session(self, func):
+        """在自动管理的 session 中执行操作"""
+        if self._provided_db is not None or self._owned_session is not None:
+            # 如果已经有 session，直接执行
+            return await func(self.db)
+
+        # 否则创建临时 session 执行（独立事务）
+        from common.utils.db.MultiAsyncDBManager import multi_db
+        async with multi_db.session(self.db_name) as session:
+            # 临时设置 session
+            self._owned_session = session
+            try:
+                return await func(session)
+            finally:
+                self._owned_session = None
 
     # ==================== 基础 CRUD 操作 ====================
 
+    @auto_session
     async def save(self, entity: T) -> T:
         """
         保存实体（新增）
@@ -196,6 +305,7 @@ class AsyncBaseRepository(Generic[T]):
             await self.db.rollback()
             raise e
 
+    @auto_session
     async def save_batch(self, entities: List[T]) -> List[T]:
         """
         批量保存
@@ -216,6 +326,7 @@ class AsyncBaseRepository(Generic[T]):
             await self.db.rollback()
             raise e
 
+    @auto_session
     async def update_by_id(self, entity: T) -> bool:
         """
         根据 ID 更新实体
@@ -234,6 +345,7 @@ class AsyncBaseRepository(Generic[T]):
             await self.db.rollback()
             raise e
 
+    @auto_session
     async def update_by_id_selective(self, id: int, updates: Dict[str, Any]) -> bool:
         """
         根据 ID 选择性更新（只更新非 None 字段）
@@ -270,6 +382,7 @@ class AsyncBaseRepository(Generic[T]):
             await self.db.rollback()
             raise e
 
+    @auto_session
     async def remove_by_id(self, id: int, physical: bool = False) -> bool:
         """
         根据 ID 删除（默认逻辑删除）
@@ -303,6 +416,7 @@ class AsyncBaseRepository(Generic[T]):
             await self.db.rollback()
             raise e
 
+    @auto_session
     async def remove_by_ids(self, ids: List[int], physical: bool = False) -> int:
         """
         根据 ID 列表批量删除
@@ -336,6 +450,7 @@ class AsyncBaseRepository(Generic[T]):
             await self.db.rollback()
             raise e
 
+    @auto_session
     async def get_by_id(self, id: int) -> Optional[T]:
         """
         根据 ID 查询
@@ -355,6 +470,7 @@ class AsyncBaseRepository(Generic[T]):
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    @auto_session
     async def get_one(self, wrapper: AsyncQueryWrapper) -> Optional[T]:
         """
         根据条件查询单个实体
@@ -370,6 +486,7 @@ class AsyncBaseRepository(Generic[T]):
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    @auto_session
     async def list(self, wrapper: Optional[AsyncQueryWrapper] = None) -> List[T]:
         """
         查询列表
@@ -386,6 +503,7 @@ class AsyncBaseRepository(Generic[T]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    @auto_session
     async def list_by_ids(self, ids: List[int]) -> List[T]:
         """
         根据 ID 列表查询
@@ -405,6 +523,7 @@ class AsyncBaseRepository(Generic[T]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    @auto_session
     async def count(self, wrapper: Optional[AsyncQueryWrapper] = None) -> int:
         """
         统计数量
@@ -423,6 +542,7 @@ class AsyncBaseRepository(Generic[T]):
         result = await self.db.execute(stmt)
         return result.scalar()
 
+    @auto_session
     async def exists(self, wrapper: AsyncQueryWrapper) -> bool:
         """
         判断是否存在
@@ -435,6 +555,7 @@ class AsyncBaseRepository(Generic[T]):
         """
         return await self.count(wrapper) > 0
 
+    @auto_session
     async def page(self, page: int, page_size: int, wrapper: Optional[AsyncQueryWrapper] = None) -> Dict[str, Any]:
         """
         分页查询
@@ -479,6 +600,7 @@ class AsyncBaseRepository(Generic[T]):
         """
         return AsyncQueryWrapper(self.model_class)
 
+    @auto_session
     async def save_or_update(self, entity: T) -> T:
         """
         保存或更新（根据 ID 是否存在判断）
@@ -495,6 +617,7 @@ class AsyncBaseRepository(Generic[T]):
         else:
             return await self.save(entity)
 
+    @auto_session
     async def list_all(self) -> List[T]:
         """
         查询所有记录（不包含已删除）
