@@ -33,20 +33,20 @@ from common.model.BaseDBModel import BaseDBModel
 T = TypeVar('T', bound=BaseDBModel)
 
 
-def auto_session(func: Callable) -> Callable:
+def auto_session(method: Callable) -> Callable:
     """自动管理 session 的装饰器"""
-    @wraps(func)
+    @wraps(method)
     async def wrapper(self, *args, **kwargs):
         # 如果已经有 session，直接执行
         if self._provided_db is not None or self._owned_session is not None:
-            return await func(self, *args, **kwargs)
+            return await method(self, *args, **kwargs)
 
         # 否则创建临时 session 执行
         from common.utils.db.MultiAsyncDBManager import multi_db
         async with multi_db.session(self.db_name) as session:
             self._owned_session = session
             try:
-                return await func(self, *args, **kwargs)
+                return await method(self, *args, **kwargs)
             finally:
                 self._owned_session = None
     return wrapper

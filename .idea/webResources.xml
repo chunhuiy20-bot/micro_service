@@ -9,6 +9,7 @@
             <path value="file://$PROJECT_DIR$/user_service" />
             <path value="file://$PROJECT_DIR$/account_service" />
             <path value="file://$PROJECT_DIR$/common" />
+            <path value="file://$PROJECT_DIR$/ai_common" />
           </resourceRoots>
         </entryData>
       </entry>

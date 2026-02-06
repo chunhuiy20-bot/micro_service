@@ -1,15 +1,55 @@
 """
-BaseRepository - 类似 MyBatis-Plus 的通用 CRUD 基类
-提供常用的数据库操作方法，支持链式查询、分页、批量操作等
+文件名: BaseRepository.py
+作者: yangchunhui
+创建日期: 2026/2/5
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/6
+描述: 同步数据访问层基类，提供完整的 CRUD 操作和查询功能。包含 QueryWrapper（链式查询条件构建器）和 BaseRepository（同步仓储基类），支持自动会话管理、事务控制、逻辑删除、分页查询等功能。
+
+修改历史:
+2026/2/5 - yangchunhui - 初始版本
+2026/2/6 - yangchunhui - 参照 AsyncBaseRepository 优化，添加自动 session 管理功能
+
+依赖:
+- typing: 提供泛型和类型注解支持（TypeVar, Generic, List, Optional, Dict, Any, Type, Callable）
+- functools: wraps 装饰器，用于保持被装饰函数的元数据
+- sqlalchemy.orm: Session（同步数据库会话）
+- sqlalchemy: 查询构建工具（and_, desc, asc, func）和异常处理（SQLAlchemyError）
+- common.model.BaseDBModel: 数据库模型基类
+- common.utils.db.MultiDBManager: 多数据库管理器（运行时导入）
+
+使用示例:
 """
-from typing import TypeVar, Generic, List, Optional, Dict, Any, Type
+
+from typing import TypeVar, Generic, List, Optional, Dict, Any, Type, Callable
+from functools import wraps
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, asc, func
 from sqlalchemy.exc import SQLAlchemyError
 from common.model.BaseDBModel import BaseDBModel
+from common.utils.db.MultiAsyncDBManager import multi_db
 
 # 定义泛型类型
 T = TypeVar('T', bound=BaseDBModel)
+
+
+def auto_session(method: Callable) -> Callable:
+    """自动管理 session 的装饰器"""
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        # 如果已经有 session，直接执行
+        if self._provided_db is not None or self._owned_session is not None:
+            return method(self, *args, **kwargs)
+
+        # 否则创建临时 session 执行
+        with multi_db.session(self.db_name) as session:
+            self._owned_session = session
+            try:
+                return method(self, *args, **kwargs)
+            finally:
+                self._owned_session = None
+    return wrapper
 
 
 class QueryWrapper:
@@ -162,23 +202,90 @@ class BaseRepository(Generic[T]):
     """
     通用 Repository 基类，提供类似 MyBatis-Plus 的 CRUD 操作
 
-    使用示例:
+    支持两种使用方式：
+    1. 传统方式（手动管理 session）:
         class UserRepository(BaseRepository[User]):
             def __init__(self, db: Session):
-                super().__init__(db, User)
+                super().__init__(db=db, model_class=User)
 
         # 使用
-        user_repo = UserRepository(db)
-        user = user_repo.get_by_id(1)
-        users = user_repo.list()
+        with multi_db.session('default') as db:
+            user_repo = UserRepository(db)
+            user = user_repo.get_by_id(1)
+
+    2. 自动管理方式（推荐）:
+        class UserRepository(BaseRepository[User]):
+            def __init__(self):
+                super().__init__(model_class=User, db_name='default')
+
+        # 使用 - 自动管理 session
+        user_repo = UserRepository()
+        user = user_repo.get_by_id(1)  # 自动创建和关闭 session
+
+        # 或使用上下文管理器
+        with UserRepository() as user_repo:
+            user = user_repo.get_by_id(1)
     """
 
-    def __init__(self, db: Session, model_class: Type[T]):
-        self.db = db
+    def __init__(self, model_class: Type[T], db: Optional[Session] = None, db_name: str = 'default'):
+        """
+        初始化 Repository
+
+        Args:
+            model_class: 模型类
+            db: 数据库会话（可选，如果不提供则使用 db_name 自动管理）
+            db_name: 数据库名称（当 db 为 None 时使用）
+        """
         self.model_class = model_class
+        self._provided_db = db  # 外部提供的 session
+        self._owned_session: Optional[Session] = None  # 自己创建的 session
+        self.db_name = db_name
+
+    @property
+    def db(self) -> Session:
+        """获取当前使用的 session"""
+        if self._provided_db is not None:
+            return self._provided_db
+        if self._owned_session is not None:
+            return self._owned_session
+        raise RuntimeError("No database session available")
+
+    def __enter__(self):
+        """进入上下文管理器"""
+        if self._provided_db is None and self._owned_session is None:
+            from common.utils.db.MultiDBManager import multi_db
+            self._owned_session = multi_db.get_session(self.db_name)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """退出上下文管理器"""
+        if self._owned_session is not None:
+            try:
+                if exc_type is None:
+                    self._owned_session.commit()
+                else:
+                    self._owned_session.rollback()
+            finally:
+                self._owned_session.close()
+                self._owned_session = None
+
+    def _execute_with_session(self, func: Callable, *args, **kwargs):
+        """
+        使用 session 执行函数
+
+        Args:
+            func: 要执行的函数
+            *args: 位置参数
+            **kwargs: 关键字参数
+
+        Returns:
+            函数执行结果
+        """
+        return func(*args, **kwargs)
 
     # ==================== 基础 CRUD 操作 ====================
 
+    @auto_session
     def save(self, entity: T) -> T:
         """
         保存实体（新增）
@@ -191,13 +298,14 @@ class BaseRepository(Generic[T]):
         """
         try:
             self.db.add(entity)
-            self.db.commit()
+            self.db.flush()
             self.db.refresh(entity)
             return entity
         except SQLAlchemyError as e:
             self.db.rollback()
             raise e
 
+    @auto_session
     def save_batch(self, entities: List[T]) -> List[T]:
         """
         批量保存
@@ -210,7 +318,7 @@ class BaseRepository(Generic[T]):
         """
         try:
             self.db.add_all(entities)
-            self.db.commit()
+            self.db.flush()
             for entity in entities:
                 self.db.refresh(entity)
             return entities
@@ -218,6 +326,7 @@ class BaseRepository(Generic[T]):
             self.db.rollback()
             raise e
 
+    @auto_session
     def update_by_id(self, entity: T) -> bool:
         """
         根据 ID 更新实体
@@ -230,12 +339,13 @@ class BaseRepository(Generic[T]):
         """
         try:
             self.db.merge(entity)
-            self.db.commit()
+            self.db.flush()
             return True
         except SQLAlchemyError as e:
             self.db.rollback()
             raise e
 
+    @auto_session
     def update_by_id_selective(self, id: int, updates: Dict[str, Any]) -> bool:
         """
         根据 ID 选择性更新（只更新非 None 字段）
@@ -263,12 +373,13 @@ class BaseRepository(Generic[T]):
                 )
                 .update(updates)
             )
-            self.db.commit()
+            self.db.flush()
             return result > 0
         except SQLAlchemyError as e:
             self.db.rollback()
             raise e
 
+    @auto_session
     def remove_by_id(self, id: int, physical: bool = False) -> bool:
         """
         根据 ID 删除（默认逻辑删除）
@@ -305,12 +416,13 @@ class BaseRepository(Generic[T]):
                     .update({"del_flag": 1}, synchronize_session=False)
                 )
 
-            self.db.commit()
+            self.db.flush()
             return result > 0
         except SQLAlchemyError as e:
             self.db.rollback()
             raise e
 
+    @auto_session
     def remove_by_ids(self, ids: List[int], physical: bool = False) -> int:
         """
         根据 ID 列表批量删除
@@ -339,12 +451,15 @@ class BaseRepository(Generic[T]):
                     .update({"del_flag": 1}, synchronize_session=False)
                 )
 
-            self.db.commit()
+            self.db.flush()
             return result
         except SQLAlchemyError as e:
             self.db.rollback()
             raise e
 
+    # ==================== 查询操作 ====================
+
+    @auto_session
     def get_by_id(self, id: int) -> Optional[T]:
         """
         根据 ID 查询
@@ -366,6 +481,7 @@ class BaseRepository(Generic[T]):
             .first()
         )
 
+    @auto_session
     def get_one(self, wrapper: QueryWrapper) -> Optional[T]:
         """
         根据条件查询单个实体
@@ -387,6 +503,7 @@ class BaseRepository(Generic[T]):
         query = wrapper.build_query(query)
         return query.first()
 
+    @auto_session
     def list(self, wrapper: Optional[QueryWrapper] = None) -> List[T]:
         """
         查询列表
@@ -409,6 +526,7 @@ class BaseRepository(Generic[T]):
             query = wrapper.build_query(query)
         return query.all()
 
+    @auto_session
     def list_by_ids(self, ids: List[int]) -> List[T]:
         """
         根据 ID 列表查询
@@ -430,6 +548,7 @@ class BaseRepository(Generic[T]):
             .all()
         )
 
+    @auto_session
     def count(self, wrapper: Optional[QueryWrapper] = None) -> int:
         """
         统计数量
@@ -453,6 +572,7 @@ class BaseRepository(Generic[T]):
                 query = query.filter(and_(*wrapper.conditions))
         return query.scalar()
 
+    @auto_session
     def exists(self, wrapper: QueryWrapper) -> bool:
         """
         判断是否存在
@@ -465,6 +585,7 @@ class BaseRepository(Generic[T]):
         """
         return self.count(wrapper) > 0
 
+    @auto_session
     def page(self, page: int, page_size: int, wrapper: Optional[QueryWrapper] = None) -> Dict[str, Any]:
         """
         分页查询

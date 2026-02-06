@@ -1,18 +1,28 @@
 """
-自定义路由装饰器
-    - 1. 自动应用日志装饰器
-    - 2. 统一返回标准错误响应
+文件名: CustomRouter.py
+作者: yangchunhui
+创建日期: 2026/2/6
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/6 12:03
+描述:
+ 自定义 FastAPI 路由器，扩展 APIRouter 功能，提供自动日志记录、统一错误响应、敏感参数过滤等功能。
+ 支持路由级别的日志开关控制，可以为所有路由自动添加日志装饰器，记录请求和响应信息。
+
+修改历史:
+2026/2/6 12:03 - yangchunhui - 初始版本
+
+依赖:
+- typing: 类型注解支持（Any, Callable, Optional, List）
+- fastapi: APIRouter，FastAPI 路由器基类
+- common.utils.logger.CustomLogger: log_api_call，API 调用日志装饰器
 """
+
 from typing import Any, Callable, Optional, List
 from fastapi import APIRouter
+from common.utils.logger.CustomLogger import log_api_call
 
-from config.logger.LoggerConfig import log_api_call
-
-"""
-统一的API响应模板
-"""
-
-# 标准错误响应
+# 标准错误响应模板
 STANDARD_RESPONSES = {
     400: {
         "description": "请求参数错误",
@@ -88,7 +98,7 @@ class CustomAPIRouter(APIRouter):
         summary: Optional[str] = None,
         description: Optional[str] = None,
         responses: Optional[dict] = None,
-        auto_log: Optional[bool] = None,  # ✅ 自定义参数
+        auto_log: Optional[bool] = None,  # 自定义参数
         **kwargs
     ) -> Callable:
         """
@@ -115,24 +125,25 @@ class CustomAPIRouter(APIRouter):
             should_log = auto_log if auto_log is not None else self.auto_log
 
         def decorator(func: Callable) -> Callable:
-            # 先应用日志装饰器（如果启用）
-            if should_log:
+            # 先应用路由装饰器
+            route_func = original_decorator(func)
 
-                func = log_api_call(
+            # 再应用日志装饰器（如果启用）
+            if should_log:
+                route_func = log_api_call(
                     logger_name=self.logger_name,
                     exclude_args=self.log_exclude_args,
                     log_args=True,
                     log_result=True,
                     log_time=True,
                     log_stack_trace=True
-                )(func)
+                )(route_func)
 
-            # 再应用路由装饰器
-            return original_decorator(func)
+            return route_func
 
         return decorator
 
-    # ✅ 重写 get 方法
+    # 重写 get 方法
     def get(
         self,
         path: str,
@@ -141,7 +152,7 @@ class CustomAPIRouter(APIRouter):
         summary: Optional[str] = None,
         description: Optional[str] = None,
         responses: Optional[dict] = None,
-        auto_log: Optional[bool] = None,  # ✅ 添加 auto_log 参数
+        auto_log: Optional[bool] = None,  # 添加 auto_log 参数
         **kwargs
     ) -> Callable:
         """GET 请求"""
@@ -152,11 +163,11 @@ class CustomAPIRouter(APIRouter):
             summary=summary,
             description=description,
             responses=responses,
-            auto_log=auto_log,  # ✅ 传递 auto_log
+            auto_log=auto_log,  # 传递 auto_log
             **kwargs
         )
 
-    # ✅ 重写 post 方法
+    # 重写 post 方法
     def post(
         self,
         path: str,
@@ -165,7 +176,7 @@ class CustomAPIRouter(APIRouter):
         summary: Optional[str] = None,
         description: Optional[str] = None,
         responses: Optional[dict] = None,
-        auto_log: Optional[bool] = None,  # ✅ 添加 auto_log 参数
+        auto_log: Optional[bool] = None,  # 添加 auto_log 参数
         **kwargs
     ) -> Callable:
         """POST 请求"""
@@ -176,11 +187,11 @@ class CustomAPIRouter(APIRouter):
             summary=summary,
             description=description,
             responses=responses,
-            auto_log=auto_log,  # ✅ 传递 auto_log
+            auto_log=auto_log,  # 传递 auto_log
             **kwargs
         )
 
-    # ✅ 重写 put 方法
+    # 重写 put 方法
     def put(
         self,
         path: str,
@@ -204,7 +215,7 @@ class CustomAPIRouter(APIRouter):
             **kwargs
         )
 
-    # ✅ 重写 delete 方法
+    # 重写 delete 方法
     def delete(
         self,
         path: str,
@@ -228,7 +239,7 @@ class CustomAPIRouter(APIRouter):
             **kwargs
         )
 
-    # ✅ 重写 patch 方法
+    # 重写 patch 方法
     def patch(
         self,
         path: str,

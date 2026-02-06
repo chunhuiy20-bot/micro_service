@@ -1,3 +1,30 @@
+"""
+文件名: MultiAsyncDBManager.py
+作者: yangchunhui
+创建日期: 2026/2/6
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/6 11:34
+描述: 多数据库异步连接管理器，提供多数据库连接池管理、会话管理、健康检查等功能。
+支持同时管理多个数据库连接，每个数据库独立配置连接池参数。
+包含 MultiAsyncDBManager（多数据库管理器）和 AsyncDBManager（单数据库管理器）。
+
+修改历史:
+2026/2/6 11:34 - yangchunhui - 初始版本
+
+依赖:
+- os: 环境变量读取，用于获取数据库配置
+- time: 时间操作，用于记录数据库管理器启动时间
+- contextlib: asynccontextmanager 装饰器，用于创建异步上下文管理器
+- typing: 类型注解支持（AsyncGenerator, Dict, Optional）
+- sqlalchemy.ext.asyncio: 异步数据库引擎和会话（create_async_engine, AsyncSession, async_sessionmaker）
+- sqlalchemy.pool: AsyncAdaptedQueuePool，异步连接池实现
+- dotenv: load_dotenv，用于加载 .env 环境变量文件
+- asyncio: 异步锁和信号量（Lock, Semaphore），用于并发控制
+- sqlalchemy: text，用于执行原生 SQL 语句（健康检查）
+"""
+
+
 import os
 import time
 from contextlib import asynccontextmanager

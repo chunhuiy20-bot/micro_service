@@ -1,2 +1,4 @@
 # 忽略 test 文件夹及其内容
 test/
+
+logs/

@@ -1,7 +1,27 @@
 """
-Nacos 服务注册通用工具类
-支持 FastAPI 应用的服务注册、心跳保活、优雅下线
+文件名: NacosRegistry.py
+作者: yangchunhui
+创建日期: 2026/2/6
+联系方式: chunhuiy20@gmail.com
+版本号: 1.0
+更改时间: 2026/2/6 11:34
+描述: Nacos 服务注册与发现工具类，提供 FastAPI 应用的服务注册、心跳保活、优雅下线功能。
+支持自动获取本机 IP、服务注册重试、心跳失败自动重连、健康检查端点等特性。
+包含 NacosConfig（配置模型）、NacosRegistry（注册管理器）和 create_nacos_lifespan（生命周期工厂函数）。
+
+修改历史:
+2026/2/6 11:34 - yangchunhui - 初始版本
+
+依赖:
+- asyncio: 异步任务管理，用于心跳任务和异步注册/注销
+- socket: 网络操作，用于自动获取本机 IP 地址
+- contextlib: asynccontextmanager 装饰器，用于创建异步上下文管理器
+- typing: 类型注解支持（Optional, Dict）
+- fastapi: FastAPI 框架，用于集成服务注册和健康检查端点
+- nacos: nacos-sdk-python，Nacos 客户端 SDK，用于服务注册、注销和心跳
+- pydantic: BaseModel 和 Field，用于配置模型的数据验证和序列化
 """
+
 import asyncio
 import socket
 from contextlib import asynccontextmanager
@@ -242,7 +262,7 @@ def create_nacos_lifespan(config: NacosConfig, auto_health_check: bool = True, h
         app = FastAPI(lifespan=create_nacos_lifespan(config, auto_health_check=False))
 
         # 自定义健康检查路径
-        app = FastAPI(lifespan=create_nacos_lifespan(config, health_path="/api/health"))
+        app = FastAPI(lifespan=create_nacos_lifespan(config, health_path="/router/health"))
     """
     registry = NacosRegistry(config)
 
