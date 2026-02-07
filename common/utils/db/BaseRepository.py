@@ -253,7 +253,7 @@ class BaseRepository(Generic[T]):
     def __enter__(self):
         """进入上下文管理器"""
         if self._provided_db is None and self._owned_session is None:
-            from common.utils.db.MultiDBManager import multi_db
+
             self._owned_session = multi_db.get_session(self.db_name)
         return self
 

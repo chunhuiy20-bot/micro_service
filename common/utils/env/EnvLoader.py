@@ -29,9 +29,7 @@ load_service_env(__file__, env_file=".env.prod")
 load_service_env(__file__, levels_up=2)  # 向上2层找到 account_service/.env
 """
 from pathlib import Path
-from typing import Optional
 from dotenv import load_dotenv
-import os
 
 
 def load_service_env(
