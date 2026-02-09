@@ -47,7 +47,7 @@ class Result(BaseModel, Generic[T]):
 
     model_config = ConfigDict(
         from_attributes=True,
-        arbitrary_types_allowed=True
+        arbitrary_types_allowed=True,
     )
 
     @classmethod
@@ -122,7 +122,7 @@ class PageResult(BaseModel, Generic[T]):
 
     model_config = ConfigDict(
         from_attributes=True,
-        arbitrary_types_allowed=True
+        arbitrary_types_allowed=True,
     )
 
     @property

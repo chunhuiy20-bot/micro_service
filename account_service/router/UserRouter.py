@@ -18,7 +18,7 @@ TODO: 添加使用示例
 """
 from pydantic import BaseModel
 
-from account_service.repository.UserRepository import user_repo
+from account_service.service.UserService import user_service
 from common.utils.router.CustomRouter import CustomAPIRouter
 
 router = CustomAPIRouter(
@@ -37,5 +37,4 @@ class RequestModel(BaseModel):
 
 @router.post("/get_user_list", summary="获取用户列表")
 async def get_user_list(user: RequestModel):
-    user_list = await user_repo.list()
-    return {"data": user_list, "code": 200, "message": "success"}
+    return await user_service.get_user_list()
