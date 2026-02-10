@@ -1,9 +1,9 @@
 import os
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from common.utils.db.AsyncBaseRepository import AsyncBaseRepository
+from common.utils.db.mysql.AsyncBaseRepository import AsyncBaseRepository
 from account_service.model.User import User
-from common.utils.db.MultiAsyncDBManager import multi_db
+from common.utils.db.mysql.MultiAsyncDBManager import multi_db
 from common.utils.env.EnvLoader import load_service_env
 # 加载环境变量
 load_service_env(__file__)

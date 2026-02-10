@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, asc, func
 from sqlalchemy.exc import SQLAlchemyError
 from common.model.BaseDBModel import BaseDBModel
-from common.utils.db.MultiAsyncDBManager import multi_db
+from common.utils.db.mysql.MultiAsyncDBManager import multi_db
 
 # 定义泛型类型
 T = TypeVar('T', bound=BaseDBModel)

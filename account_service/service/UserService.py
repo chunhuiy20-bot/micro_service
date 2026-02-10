@@ -20,6 +20,12 @@ class UserService:
     @async_retry(max_retries=3,delay=3)
     @with_repo(UserRepository, db_name="main")
     async def register_user(self, user_repo: UserRepository) -> Result[bool]:
+        """
+        方法说明: 用户注册业务逻辑
+        作者: yangchunhui
+        创建时间: 2026/2/10
+        修改历史: 2026/2/10 - yangchunhui - 初始版本
+        """
         pass
 
 

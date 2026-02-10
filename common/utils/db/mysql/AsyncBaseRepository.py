@@ -42,7 +42,7 @@ def auto_session(method: Callable) -> Callable:
             return await method(self, *args, **kwargs)
 
         # 否则创建临时 session 执行
-        from common.utils.db.MultiAsyncDBManager import multi_db
+        from common.utils.db.mysql.MultiAsyncDBManager import multi_db
         async with multi_db.session(self.db_name) as session:
             self._owned_session = session
             try:
@@ -254,7 +254,7 @@ class AsyncBaseRepository(Generic[T]):
             return self
 
         # 否则从 multi_db 获取 session
-        from common.utils.db.MultiAsyncDBManager import multi_db
+        from common.utils.db.mysql.MultiAsyncDBManager import multi_db
         self._session_context = multi_db.session(self.db_name)
         self._owned_session = await self._session_context.__aenter__()
         return self
@@ -274,7 +274,7 @@ class AsyncBaseRepository(Generic[T]):
             return await func(self.db)
 
         # 否则创建临时 session 执行（独立事务）
-        from common.utils.db.MultiAsyncDBManager import multi_db
+        from common.utils.db.mysql.MultiAsyncDBManager import multi_db
         async with multi_db.session(self.db_name) as session:
             # 临时设置 session
             self._owned_session = session
