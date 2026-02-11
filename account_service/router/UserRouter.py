@@ -27,7 +27,7 @@ router = CustomAPIRouter(
     prefix="/api/account/user",
     tags=["用户服务相关API"],
     auto_log=True,
-    logger_name="account-service",
+    logger_name="account-service--2",
     log_exclude_args=["password", "token", "secret", "api_key"]
 )
 
@@ -35,20 +35,12 @@ router = CustomAPIRouter(
 register_queue_limiter = ConcurrencyLimiter(max_concurrent=10, timeout=30.0)
 
 """
-接口说明: 创建用户的接口。使用并发限制器，超出限制排队等待,应为使用了一种消耗内内存的hash来做加密，破解方会有极大的成本，但同时我们也要消耗内村，所以先限制并发
+接口说明: 创建用户的接口。使用并发限制器，超出限制排队等待,因为使用了一种消耗内内存的hash来做加密，破解方会有极大的成本，但同时我们也要消耗内村，所以先限制并发
 作者: yangchunhui
 创建时间: 2026/2/10
 修改历史: 2026/2/10 - yangchunhui - 初始版本
 """
+@register_queue_limiter  # 使用独立的限制器，最多10个并发
 @router.post("/register_user", summary="创建用户（支持排队）")
-@register_queue_limiter  # 使用独立的限制器，最多5个并发
-async def register_user_with_queue(request: Request, user: UserRegisterRequest):
-    pass
-    # 模拟耗时操作
-    # await asyncio.sleep(2)
-    # return {
-    #     "message": "注册成功（排队模式）",
-    #     "account": user.account,
-    #     "limiter_stats": register_queue_limiter.get_stats()  # 获取这个接口的统计
-    # }
-
+async def register_user_with_queue(request: Request, user_register_request: UserRegisterRequest):
+    return await user_service.register_user(user_register_request)

@@ -1,6 +1,6 @@
 
 from typing import Optional, Literal
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 import re
 
 class UserLoginRequest(BaseModel):
@@ -20,9 +20,9 @@ class UserLoginRequest(BaseModel):
 
 
 class UserRegisterRequest(BaseModel):
-    """用户注册请求"""
+    """用户注册请求（account、email、phone 有且仅有一个）"""
     name: Optional[str] = Field(None, min_length=2, max_length=50, description="用户昵称")
-    account: str = Field(..., min_length=3, max_length=50, description="登录账号（唯一）")
+    account: Optional[str] = Field(None, min_length=3, max_length=50, description="登录账号（唯一）")
     email: Optional[EmailStr] = Field(None, description="邮箱")
     phone: Optional[str] = Field(None, description="手机号")
     password: str = Field(..., min_length=6, max_length=50, description="密码")
@@ -31,8 +31,9 @@ class UserRegisterRequest(BaseModel):
     @classmethod
     def validate_account(cls, v):
         """验证账号格式：只允许字母、数字、下划线"""
-        if not re.match(r'^[a-zA-Z0-9_]+$', v):
-            raise ValueError('账号只能包含字母、数字和下划线')
+        if v is not None:
+            if not re.match(r'^[a-zA-Z0-9_]+$', v):
+                raise ValueError('账号只能包含字母、数字和下划线')
         return v
 
     @field_validator('phone')
@@ -40,7 +41,6 @@ class UserRegisterRequest(BaseModel):
     def validate_phone(cls, v):
         """验证手机号格式"""
         if v is not None:
-            # 中国大陆手机号验证
             if not re.match(r'^1[3-9]\d{9}$', v):
                 raise ValueError('手机号格式不正确')
         return v
@@ -52,3 +52,16 @@ class UserRegisterRequest(BaseModel):
         if len(v) < 6:
             raise ValueError('密码长度至少6位')
         return v
+
+    @model_validator(mode='after')
+    def check_exactly_one_identifier(self):
+        """验证有且仅有一个标识符（account、email、phone）"""
+        identifiers = [self.account, self.email, self.phone]
+        provided_count = sum(1 for x in identifiers if x is not None)
+
+        if provided_count == 0:
+            raise ValueError('account、email、phone 必须提供一个')
+        elif provided_count > 1:
+            raise ValueError('account、email、phone 只能提供一个，不支持多标识符注册')
+
+        return self

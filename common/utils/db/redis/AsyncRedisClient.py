@@ -31,6 +31,21 @@
     finally:
         await redis_client.close()
 
+    # 方式3: 使用装饰器（最简洁）
+    @with_redis_client()
+    async def my_function(redis_client: AsyncRedisClient):
+        await redis_client.async_set("key", "value")
+        return await redis_client.async_get("key")
+
+    result = await my_function()  # 自动管理连接
+
+    # 方式4: 装饰器指定配置
+    @with_redis_client(db=1, max_connections=20)
+    async def cache_user(user_id: int, redis_client: AsyncRedisClient):
+        await redis_client.async_set(f"user:{user_id}", {"id": user_id})
+
+    await cache_user(user_id=123)
+
     # 发布订阅示例
     async with AsyncRedisClient() as redis_client:
         await redis_client.publish("channel", {"event": "test"})
@@ -43,9 +58,61 @@
 
 import os
 import json
-from typing import Optional, Union, Dict, Any, List
+from typing import Optional, Union, Dict, Any, List, Callable
+from functools import wraps
 from redis.asyncio import Redis as AsyncRedis, ConnectionPool as AsyncConnectionPool
+from redis.exceptions import RedisError, ConnectionError, TimeoutError
 from contextlib import asynccontextmanager
+
+
+def with_redis_client(
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    password: Optional[str] = None,
+    db: Optional[int] = None,
+    **kwargs
+):
+    """
+    装饰器：自动管理 Redis 客户端生命周期
+
+    被装饰的函数会自动获得一个 redis_client 参数，函数执行完毕后自动关闭连接。
+
+    Args:
+        host: Redis 主机地址
+        port: Redis 端口
+        password: Redis 密码
+        db: Redis 数据库编号
+        **kwargs: 其他 AsyncRedisClient 初始化参数
+
+    使用示例:
+        @with_redis_client()
+        async def my_function(redis_client: AsyncRedisClient):
+            await redis_client.async_set("key", "value")
+            return await redis_client.async_get("key")
+
+        # 调用时不需要传递 redis_client 参数
+        result = await my_function()
+
+        # 也可以指定配置
+        @with_redis_client(db=1, max_connections=20)
+        async def another_function(redis_client: AsyncRedisClient, user_id: int):
+            await redis_client.async_set(f"user:{user_id}", "data")
+
+        await another_function(user_id=123)
+    """
+    def decorator(func: Callable):
+        @wraps(func)
+        async def wrapper(*args, **func_kwargs):
+            async with AsyncRedisClient(
+                host=host,
+                port=port,
+                password=password,
+                db=db,
+                **kwargs
+            ) as redis_client:
+                return await func(*args, redis_client=redis_client, **func_kwargs)
+        return wrapper
+    return decorator
 
 
 class AsyncRedisClient:
@@ -144,7 +211,7 @@ class AsyncRedisClient:
         try:
             client = await self._get_client()
             return await client.ping()
-        except Exception:
+        except (RedisError, ConnectionError, TimeoutError, OSError):
             return False
 
     # ============================================================
@@ -561,7 +628,7 @@ class AsyncRedisClient:
             bool: 元素存在返回 True
         """
         client = await self._get_client()
-        return await client.sismember(name, value)
+        return bool(await client.sismember(name, value))
 
     async def async_scard(self, name: str) -> int:
         """

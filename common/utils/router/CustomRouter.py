@@ -125,19 +125,19 @@ class CustomAPIRouter(APIRouter):
             should_log = auto_log if auto_log is not None else self.auto_log
 
         def decorator(func: Callable) -> Callable:
-            # 先应用路由装饰器
-            route_func = original_decorator(func)
-
-            # 再应用日志装饰器（如果启用）
+            # 先应用日志装饰器（如果启用）
             if should_log:
-                route_func = log_api_call(
+                func = log_api_call(
                     logger_name=self.logger_name,
                     exclude_args=self.log_exclude_args,
                     log_args=True,
                     log_result=True,
                     log_time=True,
                     log_stack_trace=True
-                )(route_func)
+                )(func)
+
+            # 再应用路由装饰器
+            route_func = original_decorator(func)
 
             return route_func
 

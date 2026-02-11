@@ -292,8 +292,39 @@ def log_api_call(
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
 
+            def mask_sensitive_data(obj: Any, depth: int = 0) -> Any:
+                """递归屏蔽敏感数据"""
+                if depth > 5:  # 防止无限递归
+                    return obj
+
+                # 处理 Pydantic 模型
+                if hasattr(obj, 'model_dump'):  # Pydantic v2
+                    data = obj.model_dump()
+                    return {
+                        k: '***' if k in exclude_args else mask_sensitive_data(v, depth + 1)
+                        for k, v in data.items()
+                    }
+                elif hasattr(obj, 'dict'):  # Pydantic v1
+                    data = obj.dict()
+                    return {
+                        k: '***' if k in exclude_args else mask_sensitive_data(v, depth + 1)
+                        for k, v in data.items()
+                    }
+                # 处理字典
+                elif isinstance(obj, dict):
+                    return {
+                        k: '***' if k in exclude_args else mask_sensitive_data(v, depth + 1)
+                        for k, v in obj.items()
+                    }
+                # 处理列表
+                elif isinstance(obj, (list, tuple)):
+                    return [mask_sensitive_data(item, depth + 1) for item in obj]
+                # 其他类型直接返回
+                else:
+                    return obj
+
             filtered_args = {
-                k: '***' if k in exclude_args else v
+                k: '***' if k in exclude_args else mask_sensitive_data(v)
                 for k, v in bound_args.arguments.items()
             }
 
