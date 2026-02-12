@@ -5,7 +5,7 @@ from common.utils.exception.GlobalExceptionHandlers import register_exception_ha
 from common.utils.limiter.SlowApiRateLimiter import limiter
 from slowapi.errors import RateLimitExceeded
 
-app = FastAPI(title="Logic Gateway")
+app = FastAPI(title="Account Service")
 
 # 注册限流器到应用
 app.state.limiter = limiter

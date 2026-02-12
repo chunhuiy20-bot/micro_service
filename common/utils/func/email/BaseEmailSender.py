@@ -39,6 +39,24 @@ class EmailSendError(Exception):
     pass
 
 
+class EmailConfig:
+  """邮件配置类"""
+  def __init__(
+      self,
+      smtp_server: str,
+      smtp_port: int,
+      sender_email: str,
+      sender_password: str,
+      sender_name: Optional[str] = None,
+      use_ssl: bool = True
+  ):
+      self.smtp_server = smtp_server
+      self.smtp_port = smtp_port
+      self.sender_email = sender_email
+      self.sender_password = sender_password
+      self.sender_name = sender_name or sender_email
+      self.use_ssl = use_ssl
+
 class BaseEmailSender:
     """
     通用邮件发送器基类
@@ -49,38 +67,19 @@ class BaseEmailSender:
     3. 处理邮件格式转换
     """
 
-    def __init__(
-        self,
-        smtp_server: str,
-        smtp_port: int,
-        sender_email: str,
-        sender_password: str,
-        sender_name: Optional[str] = None,
-        use_ssl: bool = True
-    ):
+    def __init__(self, config: EmailConfig):
         """
         初始化邮件发送器
 
         Args:
-            smtp_server: SMTP 服务器地址（如 smtp.qq.com）
-            smtp_port: SMTP 端口（SSL: 465, TLS: 587）
-            sender_email: 发件人邮箱
-            sender_password: 发件人密码或授权码
-            sender_name: 发件人显示名称（可选）
-            use_ssl: 是否使用 SSL（465端口用SSL，587端口用TLS）
+            config: 邮件配置对象
         """
-        self.smtp_server = smtp_server
-        self.smtp_port = smtp_port
-        self.sender_email = sender_email
-        self.sender_password = sender_password
-        self.sender_name = sender_name or sender_email
-        self.use_ssl = use_ssl
-
+        self.config = config
         self._validate_config()
 
     def _validate_config(self):
         """验证配置"""
-        if not all([self.smtp_server, self.smtp_port, self.sender_email, self.sender_password]):
+        if not all([self.config.smtp_server, self.config.smtp_port, self.config.sender_email, self.config.sender_password]):
             raise ValueError("SMTP 配置不完整，请检查必填参数")
 
     def _create_message(
@@ -103,7 +102,7 @@ class BaseEmailSender:
             MIMEMultipart 对象
         """
         message = MIMEMultipart()
-        message['From'] = formataddr((self.sender_name, self.sender_email))
+        message['From'] = formataddr((self.config.sender_name, self.config.sender_email))
         message['To'] = self._format_addresses(to)
         message['Subject'] = Header(subject, 'utf-8')
 
@@ -202,17 +201,17 @@ class BaseEmailSender:
         server = None
         try:
             # 建立连接
-            if self.use_ssl:
-                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+            if self.config.use_ssl:
+                server = smtplib.SMTP_SSL(self.config.smtp_server, self.config.smtp_port)
             else:
-                server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+                server = smtplib.SMTP(self.config.smtp_server, self.config.smtp_port)
                 server.starttls()
 
             # 登录
-            server.login(self.sender_email, self.sender_password)
+            server.login(self.config.sender_email, self.config.sender_password)
 
             # 发送
-            server.sendmail(self.sender_email, recipients, message.as_string())
+            server.sendmail(self.config.sender_email, recipients, message.as_string())
         finally:
             if server:
                 try:
