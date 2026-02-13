@@ -4,13 +4,14 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 import re
 
 class UserLoginRequest(BaseModel):
-    """用户登录请求（支持用户名/邮箱/手机号登录）"""
+    """用户登录请求（支持用户名/邮箱/手机号登录，支持密码或验证码）"""
     account: str = Field(..., description="登录账号（用户名/邮箱/手机号）")
-    password: str = Field(..., min_length=6, description="密码")
+    password: str = Field(..., min_length=6, description="密码或验证码")
+    login_type: Literal["password", "verify_code"] = Field("password", description="登录类型：password-密码登录，verify_code-验证码登录")
 
     @property
-    def login_type(self) -> Literal["email", "phone", "username"]:
-        """自动识别登录类型"""
+    def account_type(self) -> Literal["email", "phone", "username"]:
+        """自动识别账号类型"""
         if '@' in self.account:
             return "email"
         elif re.match(r'^1[3-9]\d{9}$', self.account):
@@ -26,6 +27,7 @@ class UserRegisterRequest(BaseModel):
     email: Optional[EmailStr] = Field(None, description="邮箱")
     phone: Optional[str] = Field(None, description="手机号")
     password: str = Field(..., min_length=6, max_length=50, description="密码")
+    verify_code: Optional[str] = Field(None, min_length=6, max_length=6, description="验证码（邮箱或手机号注册时必填）")
 
     @field_validator('account')
     @classmethod
@@ -63,5 +65,13 @@ class UserRegisterRequest(BaseModel):
             raise ValueError('account、email、phone 必须提供一个')
         elif provided_count > 1:
             raise ValueError('account、email、phone 只能提供一个，不支持多标识符注册')
+
+        # 邮箱或手机号注册时必须提供验证码
+        if (self.email or self.phone) and not self.verify_code:
+            raise ValueError('邮箱或手机号注册时必须提供验证码')
+
+        # 账号注册不需要验证码
+        if self.account and self.verify_code:
+            raise ValueError('账号注册不需要验证码')
 
         return self

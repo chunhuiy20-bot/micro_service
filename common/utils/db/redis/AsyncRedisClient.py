@@ -65,6 +65,29 @@ from redis.exceptions import RedisError, ConnectionError, TimeoutError
 from contextlib import asynccontextmanager
 
 
+class RedisConfig:
+    """Redis 配置类"""
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        password: Optional[str] = None,
+        db: int = 0,
+        max_connections: int = 10,
+        decode_responses: bool = True,
+        socket_timeout: int = 5,
+        socket_connect_timeout: int = 5,
+    ):
+        self.host = host
+        self.port = port
+        self.password = password
+        self.db = db
+        self.max_connections = max_connections
+        self.decode_responses = decode_responses
+        self.socket_timeout = socket_timeout
+        self.socket_connect_timeout = socket_connect_timeout
+
+
 def with_redis_client(
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -124,6 +147,7 @@ class AsyncRedisClient:
 
     def __init__(
         self,
+        config: Optional[RedisConfig] = None,
         host: Optional[str] = None,
         port: Optional[int] = None,
         password: Optional[str] = None,
@@ -137,6 +161,7 @@ class AsyncRedisClient:
         初始化 Redis 客户端
 
         Args:
+            config: Redis 配置对象（优先使用）
             host: Redis 主机地址，默认从环境变量 REDIS_HOST 读取，fallback 为 localhost
             port: Redis 端口，默认从环境变量 REDIS_PORT 读取，fallback 为 6379
             password: Redis 密码，默认从环境变量 REDIS_PASSWORD 读取
@@ -146,15 +171,26 @@ class AsyncRedisClient:
             socket_timeout: Socket 超时时间（秒）
             socket_connect_timeout: Socket 连接超时时间（秒）
         """
-        # 从环境变量或参数获取配置，带类型转换和默认值
-        self._host = host or os.getenv("REDIS_HOST", "localhost")
-        self._port = port or int(os.getenv("REDIS_PORT", "6379"))
-        self._password = password or os.getenv("REDIS_PASSWORD")
-        self._db = db if db is not None else int(os.getenv("REDIS_DB", "0"))
-        self._max_connections = max_connections
-        self._decode_responses = decode_responses
-        self._socket_timeout = socket_timeout
-        self._socket_connect_timeout = socket_connect_timeout
+        # 如果提供了 config 对象，优先使用
+        if config:
+            self._host = config.host
+            self._port = config.port
+            self._password = config.password
+            self._db = config.db
+            self._max_connections = config.max_connections
+            self._decode_responses = config.decode_responses
+            self._socket_timeout = config.socket_timeout
+            self._socket_connect_timeout = config.socket_connect_timeout
+        else:
+            # 从环境变量或参数获取配置，带类型转换和默认值
+            self._host = host or os.getenv("REDIS_HOST", "localhost")
+            self._port = port or int(os.getenv("REDIS_PORT", "6379"))
+            self._password = password or os.getenv("REDIS_PASSWORD")
+            self._db = db if db is not None else int(os.getenv("REDIS_DB", "0"))
+            self._max_connections = max_connections
+            self._decode_responses = decode_responses
+            self._socket_timeout = socket_timeout
+            self._socket_connect_timeout = socket_connect_timeout
 
         # 连接池和客户端实例（延迟初始化）
         self._async_pool: Optional[AsyncConnectionPool] = None

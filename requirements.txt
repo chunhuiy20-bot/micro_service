@@ -106,3 +106,5 @@ greenlet==3.3.1
 passlib[argon2]==1.7.4
 slowapi==0.1.9
 redis==5.2.1
+pydantic-settings>=2.12.0
+
