@@ -35,16 +35,7 @@ router = CustomAPIRouter(
 register_queue_limiter = ConcurrencyLimiter(max_concurrent=10, timeout=30.0)
 verify_code_limiter = ConcurrencyLimiter(max_concurrent=20, timeout=10.0)
 
-"""
-接口说明: 创建用户的接口。使用并发限制器，超出限制排队等待,因为使用了一种消耗内内存的hash来做加密，破解方会有极大的成本，但同时我们也要消耗内村，所以先限制并发
-作者: yangchunhui
-创建时间: 2026/2/10
-修改历史: 2026/2/10 - yangchunhui - 初始版本
-"""
-@register_queue_limiter  # 使用独立的限制器，最多10个并发
-@router.post("/register_user", summary="创建用户（支持排队）")
-async def register_user_with_queue(user_register_request: UserRegisterRequest):
-    return await user_service.register_user(user_register_request)
+
 
 
 """
@@ -88,6 +79,16 @@ async def get_login_verify_code(
 ):
     return await user_service.send_login_verify_code(target=target)
 
+"""
+接口说明: 创建用户的接口。使用并发限制器，超出限制排队等待,因为使用了一种消耗内内存的hash来做加密，破解方会有极大的成本，但同时我们也要消耗内村，所以先限制并发
+作者: yangchunhui
+创建时间: 2026/2/10
+修改历史: 2026/2/10 - yangchunhui - 初始版本
+"""
+@register_queue_limiter  # 使用独立的限制器，最多10个并发
+@router.post("/register_user", summary="创建用户（支持排队）")
+async def register_user_with_queue(user_register_request: UserRegisterRequest):
+    return await user_service.register_user(user_register_request)
 
 """
 接口说明: 获取注册验证码（支持邮箱和手机号）
