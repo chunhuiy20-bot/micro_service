@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from account_service.router.UserRouter import router as user_router
+from account_service.router.CategoryRouter import router as category_router
+from account_service.middleware.AuthMiddleware import AuthMiddleware
 from common.utils.exception.GlobalExceptionHandlers import register_exception_handlers
 from common.utils.limiter.SlowApiRateLimiter import limiter
 from slowapi.errors import RateLimitExceeded
@@ -28,4 +30,6 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 
 register_exception_handlers(app)
+app.add_middleware(AuthMiddleware)
 app.include_router(user_router)
+app.include_router(category_router)

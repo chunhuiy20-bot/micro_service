@@ -25,7 +25,7 @@ from common.utils.limiter.ConcurrencyLimiter import ConcurrencyLimiter
 
 router = CustomAPIRouter(
     prefix="/api/account/user",
-    tags=["用户服务相关API"],
+    tags=["记账软件用户服务相关API"],
     auto_log=True,
     logger_name="account-service--2",
     log_exclude_args=["password", "token", "secret", "api_key"]
