@@ -19,6 +19,7 @@ TODO: 添加使用示例
 
 from typing import Optional
 from fastapi import Query, Request, HTTPException, Depends
+from account_service.middleware.RoleDepends import require_role
 from account_service.schemas.request.CategoryRequestSchemas import (
     CategoryCreateRequest,
     CategoryUpdateRequest,
@@ -26,7 +27,6 @@ from account_service.schemas.request.CategoryRequestSchemas import (
     SystemCategoryUpdateRequest,
 )
 from account_service.service.CategoryService import category_service
-from common.utils.jwt.RoleDepends import require_role
 from common.utils.router.CustomRouter import CustomAPIRouter
 
 router = CustomAPIRouter(
