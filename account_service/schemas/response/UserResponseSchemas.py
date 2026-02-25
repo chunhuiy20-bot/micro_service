@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, Field, field_serializer
 from datetime import datetime
+from common.utils.jwt.JwtTokenPair import JwtTokenPair
 
 
 class UserResponse(BaseModel):
@@ -24,3 +25,9 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True  # 允许从 ORM 模型创建
+
+
+class LoginResponse(BaseModel):
+    """登录响应模型（用户信息 + Token 对）"""
+    user: UserResponse
+    token: JwtTokenPair

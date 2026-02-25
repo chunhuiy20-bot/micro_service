@@ -19,9 +19,14 @@ from common.utils.nacos.NacosRegistry import create_nacos_lifespan
 
 # 创建 FastAPI 应用，使用 Nacos 生命周期管理
 # 健康检查端点会自动注册到 /health
+# app = FastAPI(
+#     title="Logic Gateway",
+#     lifespan=create_nacos_lifespan(config.NACOS_CONFIG)
+# )
+# 不开启 Nacos
 app = FastAPI(
     title="Logic Gateway",
-    lifespan=create_nacos_lifespan(config.NACOS_CONFIG)
+    # lifespan=create_nacos_lifespan(config.NACOS_CONFIG)
 )
 
 app.add_middleware(TraceMiddleware)

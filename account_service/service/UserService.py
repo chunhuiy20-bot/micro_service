@@ -10,7 +10,8 @@ from common.utils.decorators.AsyncDecorators import async_retry
 from common.utils.decorators.WithRepoDecorators import with_repo
 from common.utils.security.PasswordHasher import password_hasher
 from common.utils.db.redis.AsyncRedisClient import AsyncRedisClient
-from account_service.schemas.response.UserResponseSchemas import UserResponse
+from common.utils.jwt.JwtHandler import JwtHandler
+from account_service.schemas.response.UserResponseSchemas import UserResponse, LoginResponse
 
 class UserService:
 
@@ -18,6 +19,7 @@ class UserService:
         self.redis_client: AsyncRedisClient = AsyncRedisClient(
             config=account_service_config.get_redis_config()
         )
+        self.jwt_handler = JwtHandler(account_service_config.get_jwt_config())
 
     @async_retry(max_retries=3,delay=3)
     @with_repo(UserRepository, db_name="main")
@@ -137,7 +139,7 @@ class UserService:
 
     @async_retry(max_retries=3, delay=3)
     @with_repo(UserRepository, db_name="main")
-    async def login(self, user_repo: UserRepository, account: str, password: str, login_type: str = "password") -> Result[UserResponse]:
+    async def login(self, user_repo: UserRepository, account: str, password: str, login_type: str = "password") -> Result[LoginResponse]:
         """
         方法说明: 用户登录（使用策略模式，支持账号/邮箱/手机号登录，支持密码或验证码）
         作者: yangchunhui
@@ -169,9 +171,17 @@ class UserService:
             if not success:
                 return Result.fail(error_msg)
 
-            # 转换为响应模型
+            # 签发 Token
+            token_pair = self.jwt_handler.create_token_pair(
+                user_id=str(user.id),
+                extra={"account": user.account,"role":"level_1"}
+            )
+
             user_response = UserResponse.model_validate(user)
-            return Result.success(user_response, message=f"登录成功，登录方式: {strategy.get_login_type()}")
+            return Result.success(
+                LoginResponse(user=user_response, token=token_pair),
+                message=f"登录成功，登录方式: {strategy.get_login_type()}"
+            )
 
         except ValueError as e:
             return Result.fail(str(e))
