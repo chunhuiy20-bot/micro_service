@@ -9,10 +9,17 @@ class Stock(BaseModel):
     momentum_score: float = Field(..., description="个股动能评分 0-100")
 
 
+class NewsReference(BaseModel):
+    title: str = Field(..., description="新闻标题")
+    summary: str = Field(..., description="新闻摘要")
+    source_url: str = Field(..., description="新闻来源链接")
+
+
 class ChainLink(BaseModel):
     stage: str = Field(..., description="产业链环节名称，如：上游设备、中游制造、下游终端")
     description: str = Field(..., description="该环节在当前叙事中的作用")
     key_stocks: List[Stock] = Field(..., description="该环节下的代表性个股列表")
+    news: Optional[List[NewsReference]] = Field(None, description="该环节相关新闻列表")
 
 
 class HighMomentumSector(BaseModel):
@@ -29,6 +36,9 @@ class HighMomentumSector(BaseModel):
     catalysts: List[str] = Field(..., description="近期催化剂事件列表")
     risk_tips: str = Field(..., description="板块潜在风险提示")
 
+class HotSectorAnalyticsResult(BaseModel):
+    """OpenAI 结构化输出包装器"""
+    sectors: List[HighMomentumSector] = Field(..., description="今日热门板块列表，按热度降序排列")
 
 # 使用示例
 example_input = {

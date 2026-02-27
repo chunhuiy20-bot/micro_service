@@ -40,6 +40,13 @@ class HotSectorBriefResponse(BaseModel):
         from_attributes = True
 
 
+class NewsReferenceResponse(BaseModel):
+    """新闻引用信息"""
+    title: str = Field(..., description="新闻标题")
+    summary: str = Field(..., description="新闻摘要")
+    source_url: str = Field(..., description="新闻来源链接")
+
+
 class HotSectorStockResponse(BaseModel):
     """板块个股信息"""
     id: int = Field(..., description="ID")
@@ -63,6 +70,7 @@ class HotSectorChainLinkResponse(BaseModel):
     stage: Optional[str] = Field(None, description="环节名称")
     description: Optional[str] = Field(None, description="环节描述")
     key_stocks: List[HotSectorStockResponse] = Field(default_factory=list, description="代表性个股")
+    news: Optional[List[NewsReferenceResponse]] = Field(None, description="相关新闻列表")
 
     @field_serializer('id')
     def serialize_id(self, value: int) -> str:

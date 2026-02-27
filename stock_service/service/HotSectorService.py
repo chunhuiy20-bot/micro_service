@@ -6,20 +6,23 @@ from common.utils.decorators.AsyncDecorators import async_retry
 from common.utils.decorators.WithRepoDecorators import with_repo
 from stock_service.model.HotSector import HotSector
 from stock_service.model.HotSectorChainLink import HotSectorChainLink
+from stock_service.model.HotSectorChainLinkNews import HotSectorChainLinkNews
 from stock_service.model.HotSectorStock import HotSectorStock
 from stock_service.repository.HotSectorRepository import HotSectorRepository
 from stock_service.repository.HotSectorChainLinkRepository import HotSectorChainLinkRepository, hot_sector_chain_link_repo
+from stock_service.repository.HotSectorChainLinkNewsRepository import HotSectorChainLinkNewsRepository, hot_sector_chain_link_news_repo
 from stock_service.repository.HotSectorStockRepository import HotSectorStockRepository, hot_sector_stock_repo
 from stock_service.schemas.structured_ai_response.HighMomentumSectors import HighMomentumSector, ChainLink
 from stock_service.schemas.response.HotSectorResponseSchemas import (
-    HotSectorBriefResponse, HotSectorDetailResponse, HotSectorChainLinkResponse, HotSectorStockResponse
+    HotSectorBriefResponse, HotSectorDetailResponse, HotSectorChainLinkResponse,
+    HotSectorStockResponse, NewsReferenceResponse
 )
 
 
 class HotSectorService:
 
     async def _save_chain_link(self, sector_id: int, chain_type: str, link: ChainLink):
-        """保存一个产业链环节及其个股"""
+        """保存一个产业链环节及其个股和新闻"""
         chain_record = HotSectorChainLink(
             sector_id=sector_id,
             chain_type=chain_type,
@@ -38,8 +41,18 @@ class HotSectorService:
             )
             await hot_sector_stock_repo.save(stock_record)
 
+        if link.news:
+            for news in link.news:
+                news_record = HotSectorChainLinkNews(
+                    chain_link_id=saved_link.id,
+                    title=news.title,
+                    summary=news.summary,
+                    source_url=news.source_url,
+                )
+                await hot_sector_chain_link_news_repo.save(news_record)
+
     async def _delete_by_sector_id(self, sector_id: int):
-        """删除某板块下所有环节及个股"""
+        """删除某板块下所有环节、个股及新闻"""
         link_wrapper = hot_sector_chain_link_repo.query_wrapper().eq("sector_id", sector_id)
         links = await hot_sector_chain_link_repo.list(link_wrapper)
         for link in links:
@@ -47,6 +60,12 @@ class HotSectorService:
             stocks = await hot_sector_stock_repo.list(stock_wrapper)
             for s in stocks:
                 await hot_sector_stock_repo.remove_by_id(s.id)
+
+            news_wrapper = hot_sector_chain_link_news_repo.query_wrapper().eq("chain_link_id", link.id)
+            news_list = await hot_sector_chain_link_news_repo.list(news_wrapper)
+            for n in news_list:
+                await hot_sector_chain_link_news_repo.remove_by_id(n.id)
+
             await hot_sector_chain_link_repo.remove_by_id(link.id)
 
     @async_retry(max_retries=3, delay=3)
@@ -116,12 +135,17 @@ class HotSectorService:
         for link in links:
             stock_wrapper = hot_sector_stock_repo.query_wrapper().eq("chain_link_id", link.id)
             stocks = await hot_sector_stock_repo.list(stock_wrapper)
+
+            news_wrapper = hot_sector_chain_link_news_repo.query_wrapper().eq("chain_link_id", link.id)
+            news_list = await hot_sector_chain_link_news_repo.list(news_wrapper)
+
             chain_map[link.chain_type] = HotSectorChainLinkResponse(
                 id=link.id,
                 chain_type=link.chain_type,
                 stage=link.stage,
                 description=link.description,
                 key_stocks=[HotSectorStockResponse.model_validate(s) for s in stocks],
+                news=[NewsReferenceResponse.model_validate(n) for n in news_list] or None,
             )
 
         detail = HotSectorDetailResponse(
