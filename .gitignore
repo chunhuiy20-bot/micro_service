@@ -10,3 +10,5 @@ logs/
 # 忽略编译文件
 __pycache__/
 *.pyc
+
+.env

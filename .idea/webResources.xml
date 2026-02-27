@@ -11,6 +11,7 @@
             <path value="file://$PROJECT_DIR$/common" />
             <path value="file://$PROJECT_DIR$/ai_common" />
             <path value="file://$PROJECT_DIR$/test" />
+            <path value="file://$PROJECT_DIR$/stock_service" />
           </resourceRoots>
         </entryData>
       </entry>
