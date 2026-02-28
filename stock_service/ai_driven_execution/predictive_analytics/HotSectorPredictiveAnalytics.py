@@ -4,6 +4,7 @@ from typing import List
 from openai import AsyncOpenAI
 from openai.types.responses import EasyInputMessageParam, WebSearchToolParam
 from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
+
 from stock_service.ai_driven_execution.prompt.BasePrompt import BasePrompt
 from stock_service.config.ServiceConfig import stock_service_config
 from stock_service.schemas.structured_ai_response.HighMomentumSectors import HighMomentumSector, \
@@ -64,12 +65,15 @@ class HotSectorPredictiveAnalytics:
         )
 
         result = response.choices[0].message.parsed
-        print(result)
         return result.sectors
 
 
 hot_sector_analytics = HotSectorPredictiveAnalytics()
 
 
+async def periodic_tock_analysis_job():
+    result = await hot_sector_analytics.fetch_today_hot_sectors(5)
+    return result
+
 if __name__ == "__main__":
-    asyncio.run(hot_sector_analytics.fetch_today_hot_sectors(5))
+    asyncio.run(periodic_tock_analysis_job())
