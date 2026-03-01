@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from common.utils.scheduler.DynamicScheduler import scheduler
 from stock_service.router.StockRouter import router as stock_router
@@ -28,6 +29,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Stock Service", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 register_exception_handlers(app)
 app.include_router(stock_router)

@@ -34,3 +34,11 @@ async def list_today_brief():
 @router.get("/today/detail", summary="查询今日板块详细信息")
 async def get_today_detail(sector_name: str = Query(..., description="板块名称，如 AI半导体")):
     return await hot_sector_service.get_today_detail(sector_name=sector_name)
+
+
+"""
+接口说明: 根据板块 ID 查询详细信息（含产业链及个股）
+"""
+@router.get("/detail/{sector_id}", summary="根据板块ID查询详细信息")
+async def get_detail_by_id(sector_id: int):
+    return await hot_sector_service.get_detail_by_id(sector_id=sector_id)

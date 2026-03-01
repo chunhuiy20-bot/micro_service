@@ -113,10 +113,12 @@ class HotSectorService:
     @with_repo(HotSectorRepository, db_name="main")
     async def list_today_brief(self, sector_repo: HotSectorRepository) -> Result[List[HotSectorBriefResponse]]:
         """查询今日热门板块基础信息列表"""
-        today = date.today()
+        # today = date.today()
+        today = date(2026, 3, 1)
+        print(f"固定日期：{today}")
         wrapper = sector_repo.query_wrapper().eq("record_date", today).order_by_desc("heat_index")
         records = await sector_repo.list(wrapper)
-        return Result.success([HotSectorBriefResponse.model_validate(r) for r in records])
+        return Result.success([HotSectorBriefResponse.model_validate(r, from_attributes=True) for r in records])
 
     @async_retry(max_retries=3, delay=3)
     @with_repo(HotSectorRepository, db_name="main")
@@ -144,12 +146,49 @@ class HotSectorService:
                 chain_type=link.chain_type,
                 stage=link.stage,
                 description=link.description,
-                key_stocks=[HotSectorStockResponse.model_validate(s) for s in stocks],
-                news=[NewsReferenceResponse.model_validate(n) for n in news_list] or None,
+                key_stocks=[HotSectorStockResponse.model_validate(s, from_attributes=True) for s in stocks],
+                news=[NewsReferenceResponse.model_validate(n, from_attributes=True) for n in news_list] or None,
             )
 
         detail = HotSectorDetailResponse(
-            **HotSectorBriefResponse.model_validate(sector).model_dump(),
+            **HotSectorBriefResponse.model_validate(sector, from_attributes=True).model_dump(),
+            upstream=chain_map.get("upstream"),
+            midstream=chain_map.get("midstream"),
+            downstream=chain_map.get("downstream"),
+        )
+        return Result.success(detail)
+
+
+    @async_retry(max_retries=3, delay=3)
+    @with_repo(HotSectorRepository, db_name="main")
+    async def get_detail_by_id(self, sector_repo: HotSectorRepository, sector_id: int) -> Result[HotSectorDetailResponse]:
+        """根据板块 ID 查询详细信息（含产业链及个股）"""
+        sector = await sector_repo.get_by_id(sector_id)
+        if not sector:
+            return Result.fail(f"板块 ID '{sector_id}' 不存在")
+
+        link_wrapper = hot_sector_chain_link_repo.query_wrapper().eq("sector_id", sector.id)
+        links = await hot_sector_chain_link_repo.list(link_wrapper)
+
+        chain_map = {}
+        for link in links:
+            stock_wrapper = hot_sector_stock_repo.query_wrapper().eq("chain_link_id", link.id)
+            stocks = await hot_sector_stock_repo.list(stock_wrapper)
+
+            news_wrapper = hot_sector_chain_link_news_repo.query_wrapper().eq("chain_link_id", link.id)
+            news_list = await hot_sector_chain_link_news_repo.list(news_wrapper)
+
+            chain_map[link.chain_type] = HotSectorChainLinkResponse(
+                id=link.id,
+                chain_type=link.chain_type,
+                stage=link.stage,
+                description=link.description,
+                key_stocks=[HotSectorStockResponse.model_validate(s, from_attributes=True) for s in stocks],
+                news=[NewsReferenceResponse.model_validate(n, from_attributes=True) for n in news_list] or None,
+            )
+
+        detail = HotSectorDetailResponse(
+            **HotSectorBriefResponse.model_validate(sector, from_attributes=True).model_dump(),
             upstream=chain_map.get("upstream"),
             midstream=chain_map.get("midstream"),
             downstream=chain_map.get("downstream"),

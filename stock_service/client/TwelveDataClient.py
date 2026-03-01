@@ -14,10 +14,24 @@ class TwelveDataClient:
     def get_realtime_price(self, symbol: str) -> dict:
         params = {"symbol": symbol, "apikey": self.api_key}
         data = requests.get(f"{self.BASE_URL}/price", params=params).json()
+        print(f"TwelveDataClient 拉取实时数据：{data}")
         return {
             "symbol": symbol,
             "price": float(data.get("price", 0)),
         }
+
+    def get_realtime_prices(self, symbols: list[str]) -> list[dict]:
+        """批量获取实时价格，symbols 最多 8 个（免费额度限制）"""
+        params = {"symbol": ",".join(symbols), "apikey": self.api_key}
+        data = requests.get(f"{self.BASE_URL}/price", params=params).json()
+        result = []
+        for symbol in symbols:
+            item = data.get(symbol, {})
+            result.append({
+                "symbol": symbol,
+                "price": float(item.get("price", 0)),
+            })
+        return result
 
     def get_kline(self, symbol: str, interval: str = "1day",
                   start_date: str = "", end_date: str = "", outputsize: int = 100) -> list[dict]:

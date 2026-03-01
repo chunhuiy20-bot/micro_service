@@ -15,6 +15,7 @@ class ServiceConfig(BaseSettings):
 
     alpha_vantage_key: str = Field("", alias="ALPHA_VANTAGE_KEY")
     twelve_data_key: str = Field("", alias="TWELVE_DATA_KEY")
+    tushare_token: str = Field("", alias="TUSHARE_TOKEN")
 
     openai_api_key: str = Field("", alias="OPENAI_API_KEY")
     openai_base_url: str = Field("https://api.openai.com/v1", alias="OPENAI_BASE_URL")

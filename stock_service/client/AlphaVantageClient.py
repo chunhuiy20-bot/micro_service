@@ -14,6 +14,7 @@ class AlphaVantageClient:
     def get_realtime_price(self, symbol: str) -> dict:
         params = {"function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": self.api_key}
         data = requests.get(self.BASE_URL, params=params).json()
+        print(f"获取数据：{data}")
         q = data.get("Global Quote", {})
         return {
             "symbol": symbol,
@@ -24,6 +25,10 @@ class AlphaVantageClient:
             "volume": int(q.get("06. volume", 0)),
             "change_percent": q.get("10. change percent", ""),
         }
+
+    def get_realtime_prices(self, symbols: list[str]) -> list[dict]:
+        """批量获取实时价格（逐个请求，注意免费版每日 25 次限额）"""
+        return [self.get_realtime_price(symbol) for symbol in symbols]
 
     def get_kline(self, symbol: str, interval: str = "daily", outputsize: str = "compact") -> list[dict]:
         """

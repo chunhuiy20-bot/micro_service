@@ -9,6 +9,8 @@ from stock_service.ai_driven_execution.prompt.BasePrompt import BasePrompt
 from stock_service.config.ServiceConfig import stock_service_config
 from stock_service.schemas.structured_ai_response.HighMomentumSectors import HighMomentumSector, \
     HotSectorAnalyticsResult
+from stock_service.service.HotSectorService import hot_sector_service
+from common.utils.decorators.AsyncDecorators import async_retry
 
 
 class HotSectorPredictiveAnalytics:
@@ -19,24 +21,20 @@ class HotSectorPredictiveAnalytics:
             base_url=stock_service_config.openai_base_url,
         )
 
+    @async_retry(max_retries=3, delay=5)
     async def _fetch_market_news(self, top_n: int) -> str:
         """
         Step 1: 调用 OpenAI web_search 工具搜索今日 A 股市场热点新闻
-        若 web_search 不可用则返回空字符串，由后续步骤降级处理
         """
         today = date.today().isoformat()
         web_searcher = next(p for p in BasePrompt if p["role"] == "web-searcher")
         content = web_searcher["prompt"].format(today=today, top_n=top_n)
-        try:
-            response = await self._client.responses.create(
-                model="o4-mini",
-                tools=[WebSearchToolParam(type="web_search")],
-                input=[EasyInputMessageParam(role="user", content=content)],
-            )
-            return response.output_text or ""
-        except Exception as e:
-            print(f"web-search失败，失败原因:{e}")
-            return ""
+        response = await self._client.responses.create(
+            model="o4-mini",
+            tools=[WebSearchToolParam(type="web_search")],
+            input=[EasyInputMessageParam(role="user", content=content)],
+        )
+        return response.output_text or ""
 
     async def fetch_today_hot_sectors(self, top_n: int = 5) -> List[HighMomentumSector]:
         """
@@ -49,11 +47,11 @@ class HotSectorPredictiveAnalytics:
         today = date.today().isoformat()
 
         news_summary = await self._fetch_market_news(top_n)
-        print(f"新闻： {news_summary}")
+        if not news_summary:
+            raise ValueError("未获取到市场新闻，终止分析")
+        print(f'新闻：{news_summary}')
         sector_user = next(p for p in BasePrompt if p["role"] == "sector_analyst_user")
-        prompt_key = "prompt_with_summary" if news_summary else "prompt_fallback"
-        user_prompt = sector_user[prompt_key].format(today=today, news_summary=news_summary, top_n=top_n)
-
+        user_prompt = sector_user["prompt_with_summary"].format(today=today, news_summary=news_summary, top_n=top_n)
         analyst = next(p for p in BasePrompt if p["role"] == "a_share_sector_analyst")
         response = await self._client.beta.chat.completions.parse(
             model="gpt-4o",
@@ -73,6 +71,10 @@ hot_sector_analytics = HotSectorPredictiveAnalytics()
 
 async def periodic_tock_analysis_job():
     result = await hot_sector_analytics.fetch_today_hot_sectors(5)
+    print(result)
+    today = date.today()
+    for sector in result:
+        await hot_sector_service.save(sector, today)
     return result
 
 if __name__ == "__main__":

@@ -44,6 +44,48 @@ class StockDailyPriceService:
 
     @async_retry(max_retries=3, delay=3)
     @with_repo(StockDailyPriceRepository, db_name="main")
+    async def save_batch_klines(self, repo: StockDailyPriceRepository, klines: list[dict], symbol: str, source: str) -> Result[int]:
+        """批量保存日线数据，已存在的日期自动跳过"""
+        if not klines:
+            return Result.success(0)
+
+        records_by_date: dict[date, dict] = {}
+        for k in klines:
+            try:
+                trade_date = date.fromisoformat(str(k.get("time", ""))[:10])
+                records_by_date[trade_date] = k
+            except Exception:
+                continue
+
+        if not records_by_date:
+            return Result.success(0)
+
+        # 查询已存在的日期（1次查询）
+        wrapper = repo.query_wrapper().eq("symbol", symbol).in_("trade_date", list(records_by_date.keys()))
+        existing = await repo.list(wrapper)
+        existing_dates = {r.trade_date for r in existing}
+
+        new_records = [
+            StockDailyPrice(
+                symbol=symbol,
+                trade_date=trade_date,
+                open=k.get("open"),
+                close=k.get("close"),
+                high=k.get("high"),
+                low=k.get("low"),
+                volume=k.get("volume"),
+                source=source,
+            )
+            for trade_date, k in records_by_date.items()
+            if trade_date not in existing_dates
+        ]
+
+        if new_records:
+            await repo.save_batch(new_records)
+        return Result.success(len(new_records))
+
+    @async_retry(max_retries=3, delay=3)
+    @with_repo(StockDailyPriceRepository, db_name="main")
     async def list_by_symbol(self, repo: StockDailyPriceRepository, symbol: str,
                              start_date: Optional[date] = None, end_date: Optional[date] = None) -> Result[List[StockDailyPriceResponse]]:
         """查询某只股票的历史日线数据"""

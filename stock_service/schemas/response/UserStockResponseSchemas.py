@@ -13,6 +13,12 @@ class UserStockResponse(BaseModel):
     sort_order: Optional[str] = Field(None, description="排序权重")
     create_time: Optional[datetime] = Field(None, description="创建时间")
     update_time: Optional[datetime] = Field(None, description="更新时间")
+    price: Optional[float] = Field(None, description="实时价格")
+    open: Optional[float] = Field(None, description="开盘价")
+    high: Optional[float] = Field(None, description="最高价")
+    low: Optional[float] = Field(None, description="最低价")
+    volume: Optional[int] = Field(None, description="成交量")
+    change_percent: Optional[float] = Field(None, description="涨跌幅（%）")
 
     @field_serializer('id')
     def serialize_id(self, value: int) -> str:
