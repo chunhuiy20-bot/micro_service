@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Any
 import requests
-from ai_school_mcp.config.ServiceConfig import ai_school_mcp_service_config
+from ai_school_mcp.config.ServiceConfig import  token_ctx
 from ai_school_mcp.course_mcp.schemas.CoursesParams import GetCoursesParams, GetCourseDetailParams, CreateCourseParams, \
     EditCourseParams
 
@@ -9,14 +9,17 @@ from ai_school_mcp.course_mcp.schemas.CoursesParams import GetCoursesParams, Get
 class CourseRemoteCallClient:
 
     def __init__(self):
-        self.base_url = ai_school_mcp_service_config.base_url
-        self.auth_token = "Bearer " + ai_school_mcp_service_config.auth_token
+        self.base_url = "http://47.119.48.67:80/api"
+        # self.base_url = ai_school_mcp_service_config.base_url
+        # self.auth_token = "Bearer " + ai_school_mcp_service_config.auth_token
 
     def _send_post_request(self, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送 POST JSON 请求并返回 JSON。"""
         headers = {"Content-Type": "application/json"}
-        if self.auth_token:
-            headers["Authorization"] = f"{self.auth_token}"
+        auth_token = token_ctx.get()
+        print(auth_token)
+        if auth_token:
+            headers["Authorization"] = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
 
         resp = requests.post(self.base_url+url, json=data, headers=headers, timeout=100)
         resp.raise_for_status()

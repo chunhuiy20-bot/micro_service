@@ -1,12 +1,17 @@
+from fastmcp import Context
+
+from ai_school_mcp.config.ServiceConfig import token_ctx
 from ai_school_mcp.course_mcp.remote_call.CourseRemoteCallClient import CourseRemoteCallClientService
 from ai_school_mcp.course_mcp.schemas.CoursesParams import GetCoursesParams, GetCourseDetailParams, CreateCourseParams, \
     EditCourseParams
+from ai_school_mcp.decorators.require_auth import require_auth
 from ai_school_mcp.server import mcp
 
 
 
 @mcp.tool()
-def get_all_courses(params: GetCoursesParams):
+@require_auth
+def get_all_courses(params: GetCoursesParams, ctx: Context):
     """
     分页获取课程列表。
 
@@ -16,24 +21,35 @@ def get_all_courses(params: GetCoursesParams):
     - items: 课程列表
     - total_count: 课程总数
     """
+    # # 提取并设置 Token
+    # headers = dict(ctx.request_context.request.headers)
+    # auth_token = headers.get('authorization')
+    # if not auth_token:
+    #     # 直接返回错误描述，LLM 会据此提示用户配置 Token
+    #     return {"error": "Authentication failed: No 'Authorization' header found in the request."}
+
+    # token_ctx.set(auth_token)
     return CourseRemoteCallClientService.get_courses_page(params=params)
 
 @mcp.tool()
-def get_course_detail_byid(params: GetCourseDetailParams):
+@require_auth
+def get_course_detail_byid(params: GetCourseDetailParams, ctx: Context):
     """
     根据course_id查询课程具体信息，course_id不要胡乱编
     """
     return CourseRemoteCallClientService.get_course_detail_byid(params=params)
 
 @mcp.tool()
-def add_course(params: CreateCourseParams):
+@require_auth
+def add_course(params: CreateCourseParams, ctx: Context):
     """
     根据用户的需求和想法创建课程
     """
     return CourseRemoteCallClientService.add_course(params=params)
 
 @mcp.tool()
-def edit_course_byid(params: EditCourseParams):
+@require_auth
+def edit_course_byid(params: EditCourseParams, ctx: Context):
     """
     根据课程 ID 编辑课程。
 
@@ -65,3 +81,14 @@ def edit_course_byid(params: EditCourseParams):
     - 正确：第二次提交时应传“旧 lesson + 新 lesson”的完整 lessons 数组。
     """
     return CourseRemoteCallClientService.edit_course(params=params)
+
+@mcp.tool()
+def upload_image(image_b64: str, filename: str):
+    """
+    将base64格式的图片存储到云端的OSS，并得到一个url"
+    Args:
+        image_b64:
+        filename:
+    """
+    print(f"iamge_base64:{image_b64}")
+    return f"{filename}的url: http://{filename}.png"
