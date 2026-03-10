@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +10,15 @@ class GetCoursesParams(BaseModel):
 
 class GetCourseDetailParams(BaseModel):
     course_id: str = Field(...,description="具体课程id，如果不知道可以调用get_courses_page 可以获取到课程id")
+
+class DeleteCourseParams(BaseModel):
+    course_id: str = Field(..., description="要删除的课程id，如果不知道可以调用get_courses_page 获取")
+
+class GetUnitsByCourseParams(BaseModel):
+    course_id: str = Field(..., description="课程id，用于查询该课程下的单元列表")
+
+class GetUnitDetailParams(BaseModel):
+    unit_id: str = Field(..., description="单元id，用于查询单元详情")
 
 
 # 添加课程
@@ -75,3 +84,18 @@ class EditCourseParams(BaseModel):
     status: Literal["draft", "published"] = Field("draft", description="课程状态")
     description: str = Field("", description="课程描述")
     units: List[UnitItem] = Field(default_factory=list, description="课程内容结构，可空数组")
+
+
+
+class EditUnitParams(BaseModel):
+    id: int = Field(..., description="单元ID，必填，可通过 get_units_by_course 获取单元ID")
+    title: str = Field(..., description="单元标题")
+    lessons: List[LessonItem] = Field(default_factory=list, description="单元下的课时，覆盖更新")
+    tasks: List[TaskItem] = Field(default_factory=list, description="单元直属任务，覆盖更新")
+
+
+class CreateUnitParams(BaseModel):
+    courseId: str = Field(..., description="所属课程ID，可通过 get_all_courses 获取")
+    title: str = Field(..., description="单元标题")
+    lessons: List[LessonItem] = Field(default_factory=list, description="单元下的课时，可空数组")
+    tasks: List[TaskItem] = Field(default_factory=list, description="单元直属任务，可空数组")

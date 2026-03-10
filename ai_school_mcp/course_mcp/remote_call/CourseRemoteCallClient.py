@@ -1,17 +1,16 @@
 import os
+from dotenv import load_dotenv
 from typing import Dict, Any
 import requests
 from ai_school_mcp.config.ServiceConfig import  token_ctx
 from ai_school_mcp.course_mcp.schemas.CoursesParams import GetCoursesParams, GetCourseDetailParams, CreateCourseParams, \
-    EditCourseParams
-
+    EditCourseParams, GetUnitsByCourseParams, GetUnitDetailParams, EditUnitParams, DeleteCourseParams, CreateUnitParams
+load_dotenv()
 
 class CourseRemoteCallClient:
 
     def __init__(self):
-        self.base_url = "http://47.119.48.67:80/api"
-        # self.base_url = ai_school_mcp_service_config.base_url
-        # self.auth_token = "Bearer " + ai_school_mcp_service_config.auth_token
+        self.base_url = os.getenv("BASE_URL", "http://47.119.48.67:80/api")
 
     def _send_post_request(self, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送 POST JSON 请求并返回 JSON。"""
@@ -60,8 +59,39 @@ class CourseRemoteCallClient:
         payload = params.model_dump(mode="json",exclude_none=True)
         return self._send_post_request(url="/serve/teacher/course/edit",data=payload)
 
+    def get_units_by_course(self, params: GetUnitsByCourseParams) -> Dict[str, Any]:
+        """
+        根据课程id获取单元列表
+        """
+        payload = {"id": params.course_id}
+        return self._send_post_request(url="/serve/teacher/course/getUnitByCourse", data=payload)
+
+    def get_unit_detail_byid(self, params: GetUnitDetailParams) -> Dict[str, Any]:
+        """
+        根据单元id获取单元详情
+        """
+        payload = {"id": params.unit_id}
+        return self._send_post_request(url="/serve/teacher/unit/byid", data=payload)
+
+    def edit_unit(self, params: EditUnitParams) -> Dict[str, Any]:
+        """
+        覆盖更新单元
+        """
+        payload = params.model_dump(mode="json", exclude_none=True)
+        return self._send_post_request(url="/serve/teacher/unit/edit", data=payload)
+
+    def delete_course(self, params: DeleteCourseParams) -> Dict[str, Any]:
+        """
+        根据课程id删除课程
+        """
+        payload = {"id": params.course_id}
+        return self._send_post_request(url="/serve/teacher/course/del", data=payload)
+
+    def create_unit(self, params: CreateUnitParams) -> Dict[str, Any]:
+        """
+        在指定课程下创建新单元
+        """
+        payload = params.model_dump(mode="json", exclude_none=True)
+        return self._send_post_request(url="/serve/teacher/unit/add", data=payload)
+
 CourseRemoteCallClientService = CourseRemoteCallClient()
-# params = GetCoursesParams(current=1,total=10)
-# print(CourseRemoteCallClientService.get_courses_page(params=params))
-# params = GetCourseDetailParams(course_id="2026938616653832193")
-# print(CourseRemoteCallClientService.get_course_detail_byid(params=params))
