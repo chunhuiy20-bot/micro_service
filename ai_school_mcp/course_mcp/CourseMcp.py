@@ -146,6 +146,7 @@ def add_unit(params: CreateUnitParams, ctx: Context):
 
     参数要求：
     - `courseId` 必填，所属课程ID，如不知道可先调用 get_all_courses 获取。
+    - `title` 单元标题，必填
     - `lessons` / `tasks` 可传空数组，表示创建一个空单元。
     """
     return CourseRemoteCallClientService.create_unit(params=params)
