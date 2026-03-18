@@ -2,7 +2,7 @@ from fastmcp import Context
 
 from ai_school_mcp.decorators.require_auth import require_auth
 from ai_school_mcp.question_mcp.remote_call.QuestionRemoteCallClient import QuestionRemoteCallClientService
-from ai_school_mcp.question_mcp.schemas.QuestionParams import CreatePaperParams
+from ai_school_mcp.question_mcp.schemas.QuestionParams import CreatePaperParams, GetTopicsParams
 from ai_school_mcp.server import mcp
 from common.schemas.CommonResult import Result
 
@@ -26,5 +26,19 @@ def create_paper(params: CreatePaperParams, ctx: Context):
       - discrimination: 区分度（-0.50 ~ 2.50）,表示这道题目知识点覆盖广度和解题思路能否区分学生能力
     """
     print(params)
-    return Result.success(data="录入成功")
-    # return QuestionRemoteCallClientService.create_paper(params=params)
+    # return Result.success(data="录入成功")
+    return QuestionRemoteCallClientService.create_paper(params=params)
+
+
+@mcp.tool()
+def get_topics_by_paper_model(params: GetTopicsParams, ctx: Context):
+    """
+    根据试卷类型查询该类型对应的知识点大纲标签列表。
+
+    调用时机：在调用 create_paper 录入题目之前，先调用本工具获取该 paper_model 下的知识点列表，
+    用于填充 questions 中每道题的 topics 字段。
+
+    参数说明：
+    - paper_model: A-Level试卷类型，如 Pure Mathematics P1/Mechanics/Probability&Statistics S1 等
+    """
+    return QuestionRemoteCallClientService.get_topics_by_paper_model(params=params)
