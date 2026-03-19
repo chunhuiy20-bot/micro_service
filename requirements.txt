@@ -111,8 +111,6 @@ python-jose==3.5.0
 # akshare==1.18.30
 yfinance>=0.2.50
 openai==2.24.0
-
-
 tushare~=1.4.24
 fastmcp~=3.1.0
 contextvars
