@@ -7,17 +7,12 @@ class AISchoolServerClient:
     def __init__(self):
         self.base_url = ai_school_config.aischool_base_url
         self.token = ai_school_config.aischool_token
-        print(self.token)
-        print(self.base_url)
 
     async def upload_file(self, file_path: str, is_orc: bool = False) -> str:
         """
         上传文件到 Java 服务，返回文件 URL。
         """
-        print(self.base_url)
-        print(self.token)
         url = f"{self.base_url}/file/oss/upload"
-        print(f"url:{url}")
         async with httpx.AsyncClient(timeout=60) as client:
             with open(file_path, "rb") as f:
                 response = await client.post(

@@ -2,6 +2,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from ai_school_service.router.QuestionRouter import router as question_router
+from ai_school_service.router.ImageRouter import router as image_router
 from ai_school_service.config.AISchoolConfig import ai_school_config
 from common.utils.exception.GlobalExceptionHandlers import register_exception_handlers
 from common.utils.limiter.SlowApiRateLimiter import limiter
@@ -28,3 +29,4 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 register_exception_handlers(app)
 app.include_router(question_router)
+app.include_router(image_router)

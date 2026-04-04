@@ -1,12 +1,11 @@
 
-from typing import Optional
-import subprocess
+import asyncio
 import uuid
-import os
 from pathlib import Path
 from openai import OpenAI
 from ai_school_service.config.AISchoolConfig import ai_school_config
-from ai_school_service.schemas.QuestionVariantGenerator import QuestionEntry, QuestionEntryOutPut
+from ai_school_service.schemas.QuestionVariantGenerator import Question, QuestionOutput
+from ai_school_service.services.ImageService import ImageService
 from ai_school_service.reomte_call.AISchoolServerClient import ai_school_server_client
 
 
@@ -15,33 +14,64 @@ class ALevelQuestionVariantGenerator:
     Generate an A Level-style variant question from a source question.
     """
 
-    _SYSTEM_PROMPT = """
-        你是一位资深的 A-Level 数学出题专家。你的任务是根据给定的原题，生成一道 相似但不同 的新题目。
+    # _SYSTEM_PROMPT = """
+    #     你是一位资深的A-Level出题专家。你的任务是根据给定的原题，生成一道相似但不同的新题目。
+    #
+    #     要求：
+    #     1. 新题目必须保持相同的主题（topics）和考察相同的知识点（sub_topics），保持相近但是不必一样的难度（difficulty）和区分度（discrimination）。
+    #     2. 题目结构（题型、分值分布）应与原题相同。question_number、topics、sub_topics、source_image_url 保持与原题一致。
+    #     3. 所有数学/物理/化学公式必须使用 LaTeX 格式，如 $x ^ 2 + 2x + 1 = 0$。
+    #     4. 生成全新的题目，可以改变情境、数值、条件等，只要符合 topics 和 sub_topics 即可。
+    #     5. 文科社科题目的数据、案例应合理，不违背常识。
+    #     6. 每道小题必须提供正确的参考答案（correctAnswer）。
+    #     7. 图片处理规则：
+    #        - question 中所有 diagrams 字段必须设置为空列表 []
+    #        - 在 stem_materials_need_figures 中描述需要生成的图片，描述的数据必须与你出的新题目一致
+    #        - 每个 stem_material 对应一个列表，不需要图片则为空列表 []
+    #        - 每张图片用 FigureSpec：{'prompt': '详细描述（包含具体数据）', 'type': 'matplotlib'/'gemini'}
+    #        - type='matplotlib': 数学图表/函数图像/几何图形/简单表格
+    #        - type='gemini': 仅在 matplotlib 无法处理的复杂情景图时使用
+    #     """
 
-        要求：
-        1. 新题目必须保持相同的主题（topics）和考察相同的知识点（knowledge_point），保持相近的难度（difficulty）和区分度（discrimination）。
-        2. 题目结构（题型、分值分布）应与原题相同。
-        3. 所有数学/物理/化学公式必须使用 LaTeX 格式，如 $x ^ 2 + 2x + 1 = 0$。
-        4. 修改题目中的具体数值、情境或条件，使其成为全新的题目，而不是简单换数。
-        5. 每道小题必须提供正确的参考答案（correctAnswer），解答过程要完整。
-        6. 当需要函数图像、几何图形、统计图表，必须设置question_need_image为True，且matplotlib_generate_python_code参数必须填写基于 matplotlib 绘制题目配图的完整 Python 代码。
-        7. 你必须只返回纯 JSON，不要包含任何 markdown 标记、解释或多余文字。
-        8. parts 里面的 text不要带题号，直接返回题目，不要带有排版符号
-        """
+    # _USER_PROMPT = """
+    # 请根据原题生成一道题目，题目的主题（topics: {topics} , 考查知识点（sub_topics: {sub_topics}
+    # 2. 原题: {origin_question}
+    # """
+
+    _SYSTEM_PROMPT = """                                                                                                                                                                                                                                                                                                    
+      你是一位资深的A-Level出题专家。你的任务是根据给定的考纲知识点，生成一道全新的原创题目。
+
+      要求：          
+      1. 新题目必须覆盖相同的 topics 和 sub_topics，难度相近。                                                                                                                                                                                                                                                                
+      2. 必须使用全新的情境、背景、数值和设问角度，禁止照搬或微调原题。
+         - 换场景：如原题用抛体运动打篮球，新题可以用跳水/发射火箭                                                                                                                                                                                                                                                            
+         - 换切入点：如原题正向求解，新题可以逆向推导或加入约束条件                                                                                                                                                                                                                                                           
+         - 换数据：所有数值必须重新设计，不能是原题数值的简单倍数或偏移                                                                                                                                                                                                                                                       
+      3. 题型和总分值与原题保持一致。                                                                                                                                                                                                                                                                                         
+      4. 所有公式使用 LaTeX 格式。                                                                                                                                                                                                                                                                                            
+      5. 每道小题必须提供正确的参考答案（correctAnswer）
+      6. 题目结构（题型、分值分布）应与原题相同                                                                                                                                                                                                                                                                    
+      7. 图片处理规则：
+           - question 中所有 diagrams 字段必须设置为空列表 []
+           - 在 stem_materials_need_figures 中描述需要生成的图片，描述的数据必须与你出的新题目一致
+           - 每个 stem_material 对应一个列表，不需要图片则为空列表 []
+           - 每张图片用 FigureSpec：{'prompt': '详细描述（包含具体数据）', 'type': 'matplotlib'/'gemini'}
+           - type='matplotlib': 数学图表/函数图像/几何图形/简单表格
+           - type='gemini': 仅在 matplotlib 无法处理的复杂情景图时使用                                                                                                                                                                                                                                                                                      
+      """
 
     _USER_PROMPT = """
-    请根据原题生成一道相识但不相同的题目
-    1. 题目主题（topics: {topics} , 考查知识点（knowledge_point: {knowledge_point}
-    2. 原题: {origin_question}
-    """
+      考纲信息：                                                                                                                                                                                                                                                                                                              
+      - topics: {topics}
+      - sub_topics: {sub_topics}                                                                                                                                                                                                                                                                                              
+      - 题型与分值结构参考原题
 
-    _FIX_CODE_PROMPT = """你之前生成的 matplotlib 代码执行失败，请修复代码。
-        错误信息:
-        {error}
-        原代码:
-        {code}    
-        请只返回修复后的完整 Python 代码，不要包含任何 markdown 标记或解释。
-    """
+      原题（仅供参考题型结构和难度，禁止复用其情境和数值）：                                                                                                                                                                                                                                                                  
+      {origin_question}                                                                                                                                                                                                                                                                                                       
+
+      请生成一道考查相同知识点但情境完全不同的新题，再输出题目。                                                                                                                                                                                                                                
+      """
+
     _IMAGE_DIR = Path(__file__).resolve().parent.parent / "logs" / "images"
 
     def __init__(
@@ -50,109 +80,82 @@ class ALevelQuestionVariantGenerator:
     ) -> None:
         self.client: OpenAI = ai_school_config.get_openai_client()
         self.model = model
+        self.image_service = ImageService()
 
 
 
-    async def get_question(self, question: QuestionEntry) -> QuestionEntryOutPut:
-        # 收集所有小题的知识点
-        knowledge_points = ", ".join(part.knowledge_point for part in question.parts)
+    async def get_question(self, question: Question, num: int = 10) -> list[dict]:
+        """并发生成 num 道变体题目，跳过失败的任务"""
+        print(f"预计生成: {num}道题目")
+        tasks = [self._generate_one(question) for _ in range(num)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return [r for r in results if isinstance(r, dict)]
 
-        user_content = self._USER_PROMPT.format(
-            topics=", ".join(question.topics),
-            knowledge_point=knowledge_points,
-            origin_question=question.model_dump_json(indent=2),
-        )
 
-        user_message_content = [
-            {"type": "text", "text": user_content},
-            {"type": "image_url", "image_url": {"url": question.question_image_url}},
-        ]
+    async def _generate_one(self, question: Question) -> dict:
+        """生成单道变体题目"""
+        try:
+            sub_topics = question.sub_topics
+            user_content = self._USER_PROMPT.format(
+                topics=", ".join(question.topics),
+                sub_topics=sub_topics,
+                origin_question=question.model_dump_json(indent=2),
+            )
 
-        response = self.client.beta.chat.completions.parse(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": self._SYSTEM_PROMPT},
-                {"role": "user", "content": user_message_content},
-            ],
-            response_format=QuestionEntryOutPut,
-        )
-        result: QuestionEntryOutPut = response.choices[0].message.parsed
-        print(result)
-        if result.question_need_image and result.matplotlib_generate_python_code:
-            image_path = self._execute_matplotlib_code_with_retry(result.matplotlib_generate_python_code)
-            image_url = await ai_school_server_client.upload_file(image_path)
-            result.question_image_url = image_url
-        else:
-            result.question_image_url = ""
+            user_message_content = [
+                {"type": "text", "text": user_content},
+            ]
 
-        data = result.model_dump()
+            # 将题干材料中的图片以多模态方式传入
+            for material in question.stem_materials:
+                for diagram_url in material.diagrams:
+                    user_message_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": diagram_url},
+                    })
 
-        # 删除不需要的字段
-        data.pop("question_need_image", None)
-        data.pop("matplotlib_generate_python_code", None)
-        print(data)
+            # 将子题中的图片以多模态方式传入
+            for sub_q in question.sub_questions:
+                for diagram_url in sub_q.diagrams:
+                    user_message_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": diagram_url},
+                    })
+            response = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self._SYSTEM_PROMPT},
+                    {"role": "user", "content": user_message_content},
+                ],
+                response_format=QuestionOutput,
+            )
 
-        return data
+            result: QuestionOutput = response.choices[0].message.parsed
 
-    def _execute_matplotlib_code_with_retry(self, code: str, max_retries: int = 3) -> str:
-        """
-        执行 matplotlib 代码，失败时将报错反馈给 AI 修复，最多重试 max_retries 次。
-        """
-        for attempt in range(max_retries + 1):
-            try:
-                return self._execute_matplotlib_code(code)
-            except RuntimeError as e:
-                if attempt >= max_retries:
-                    raise
-                error_msg = str(e)
-                print(f"matplotlib 代码执行失败 (第{attempt + 1}次)，请求 AI 修复...")
-                code = self._fix_matplotlib_code(code, error_msg)
+            # 生成并上传图片
+            await self._generate_and_upload_images(result)
 
-    def _fix_matplotlib_code(self, code: str, error: str) -> str:
-        """
-        将报错信息和原代码发给 AI，让其返回修复后的代码。
-        """
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "你是一个 Python 代码修复专家，只返回修复后的纯 Python 代码，不要包含任何 markdown 标记或解释。"},
-                {"role": "user", "content": self._FIX_CODE_PROMPT.format(error=error, code=code)},
-            ],
-        )
-        fixed_code = response.choices[0].message.content.strip()
-        # 去除可能的 markdown 代码块标记
-        if fixed_code.startswith("```"):
-            fixed_code = fixed_code.split("\n", 1)[1]
-            fixed_code = fixed_code.rsplit("```", 1)[0].strip()
-        return fixed_code
+            return result.question.model_dump()
+        except Exception as e:
+            print(f"生成失败: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
-    @staticmethod
-    def _execute_matplotlib_code(code: str) -> str:
-        """
-        在子进程中执行 AI 生成的 matplotlib 代码，返回生成的图片路径。
-        """
-        os.makedirs(ALevelQuestionVariantGenerator._IMAGE_DIR, exist_ok=True)
-        image_filename = f"{uuid.uuid4().hex}.png"
-        image_path = str(ALevelQuestionVariantGenerator._IMAGE_DIR / image_filename)
+    async def _generate_and_upload_images(self, output: QuestionOutput):
+        """生成并上传图片，更新 URL"""
+        for i, prompts in enumerate(output.stem_materials_need_figures):
+            if i < len(output.question.stem_materials):
+                urls = await self._generate_images(prompts)
+                output.question.stem_materials[i].diagrams = urls
 
-        # 在代码末尾追加 savefig，确保图片保存到指定路径
-        wrapped_code = (
-            "import matplotlib\n"
-            "matplotlib.use('Agg')\n"
-            f"{code}\n"
-            "import matplotlib.pyplot as plt\n"
-            f"plt.savefig(r'{image_path}', dpi=150, bbox_inches='tight')\n"
-            "plt.close()\n"
-        )
+    async def _generate_images(self, prompts: list) -> list[str]:
+        """根据 prompts 生成图片并上传，返回 URL 列表"""
+        urls = []
+        for spec in prompts:
+            filepath = await self.image_service.generate_image(spec.prompt, spec.type)
+            if filepath:
+                url = await ai_school_server_client.upload_file(filepath)
+                urls.append(url)
+        return urls
 
-        proc = subprocess.run(
-            ["python", "-c", wrapped_code],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-        if proc.returncode != 0:
-            raise RuntimeError(f"matplotlib 代码执行失败:\n{proc.stderr}")
-
-        return image_path

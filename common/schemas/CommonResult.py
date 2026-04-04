@@ -50,6 +50,10 @@ class Result(BaseModel, Generic[T]):
         arbitrary_types_allowed=True,
     )
 
+    def model_dump(self, **kwargs):
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(**kwargs)
+
     @classmethod
     def success(cls, data: Optional[T] = None, message: str = "success",
                 include_timestamp: bool = False) -> "Result[T]":

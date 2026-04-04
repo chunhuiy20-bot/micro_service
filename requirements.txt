@@ -114,3 +114,23 @@ openai==2.24.0
 tushare~=1.4.24
 fastmcp~=3.1.0
 contextvars
+# 核心 Web 框架与服务器
+fastapi
+uvicorn
+watchfiles
+
+# AI 与 大模型 SDK
+google-genai
+openai
+
+# 配置与数据验证
+pydantic
+pydantic-settings
+python-dotenv
+
+# 工具与中間件
+slowapi
+requests
+aiohttp
+# 数据可视化
+matplotlib

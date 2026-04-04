@@ -19,8 +19,9 @@ from ai_school_service.router.QuestionRouter import router as question_router
 app.include_router(question_router)
 """
 
-from ai_school_service.schemas.QuestionVariantGenerator import QuestionEntry
+from ai_school_service.schemas.QuestionVariantGenerator import Question
 from ai_school_service.services.ALevelQuestionVariantGenerator import ALevelQuestionVariantGenerator
+from common.schemas.CommonResult import Result
 from common.utils.router.CustomRouter import CustomAPIRouter
 
 router = CustomAPIRouter(
@@ -40,5 +41,9 @@ generator = ALevelQuestionVariantGenerator()
 修改历史: 2026/3/19 - yangchunhui - 初始版本
 """
 @router.post("/variant", summary="生成 A-Level 题目变体")
-async def generate_variant(question: QuestionEntry):
-    return await generator.get_question(question)
+async def generate_variant(question: Question, num: int = 10):
+    data = await generator.get_question(question, num)
+    if not data:
+        return Result.fail(message="所有题目生成失败", data=[]).model_dump()
+    print(f"成功生成 {len(data)}/{num} 道题目")
+    return Result.success(data=data).model_dump()
