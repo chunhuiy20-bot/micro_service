@@ -1,6 +1,5 @@
 
 import asyncio
-import uuid
 from pathlib import Path
 from openai import OpenAI
 from ai_school_service.config.AISchoolConfig import ai_school_config
@@ -13,30 +12,6 @@ class ALevelQuestionVariantGenerator:
     """
     Generate an A Level-style variant question from a source question.
     """
-
-    # _SYSTEM_PROMPT = """
-    #     你是一位资深的A-Level出题专家。你的任务是根据给定的原题，生成一道相似但不同的新题目。
-    #
-    #     要求：
-    #     1. 新题目必须保持相同的主题（topics）和考察相同的知识点（sub_topics），保持相近但是不必一样的难度（difficulty）和区分度（discrimination）。
-    #     2. 题目结构（题型、分值分布）应与原题相同。question_number、topics、sub_topics、source_image_url 保持与原题一致。
-    #     3. 所有数学/物理/化学公式必须使用 LaTeX 格式，如 $x ^ 2 + 2x + 1 = 0$。
-    #     4. 生成全新的题目，可以改变情境、数值、条件等，只要符合 topics 和 sub_topics 即可。
-    #     5. 文科社科题目的数据、案例应合理，不违背常识。
-    #     6. 每道小题必须提供正确的参考答案（correctAnswer）。
-    #     7. 图片处理规则：
-    #        - question 中所有 diagrams 字段必须设置为空列表 []
-    #        - 在 stem_materials_need_figures 中描述需要生成的图片，描述的数据必须与你出的新题目一致
-    #        - 每个 stem_material 对应一个列表，不需要图片则为空列表 []
-    #        - 每张图片用 FigureSpec：{'prompt': '详细描述（包含具体数据）', 'type': 'matplotlib'/'gemini'}
-    #        - type='matplotlib': 数学图表/函数图像/几何图形/简单表格
-    #        - type='gemini': 仅在 matplotlib 无法处理的复杂情景图时使用
-    #     """
-
-    # _USER_PROMPT = """
-    # 请根据原题生成一道题目，题目的主题（topics: {topics} , 考查知识点（sub_topics: {sub_topics}
-    # 2. 原题: {origin_question}
-    # """
 
     _SYSTEM_PROMPT = """                                                                                                                                                                                                                                                                                                    
       你是一位资深的A-Level出题专家。你的任务是根据给定的考纲知识点，生成一道全新的原创题目。

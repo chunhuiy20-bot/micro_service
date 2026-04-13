@@ -8,15 +8,6 @@ class QuestionType(str, Enum):
     MULTIPLE_CHOICE = "multiple_choice"
     STRUCTURED = "structured"
     SINGLE_QUESTION = "single_question"
-    # CALCULATION = "calculation"
-    # DATA_RESPONSE = "data_response"
-    # EXPERIMENT = "experiment"
-    # GRAPH = "graph"
-    # PROOF = "proof"
-    # CASE_STUDY = "case_study"
-
-
-# ==================== 文件与媒体 ====================
 
 
 
